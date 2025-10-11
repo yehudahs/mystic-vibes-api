@@ -1,0 +1,252 @@
+import express from 'express'
+import aiService from '../services/aiService.js'
+import { authenticateToken, optionalAuth } from '../middleware/auth.js'
+
+const router = express.Router()
+
+// AI Health Check
+router.get('/health', async (req, res) => {
+  try {
+    const health = await aiService.healthCheck()
+    res.json(health)
+  } catch (error) {
+    res.status(500).json({
+      error: 'AI service health check failed',
+      message: error.message
+    })
+  }
+})
+
+// Test endpoint - no auth required
+router.post('/test/reading', async (req, res) => {
+  try {
+    const cards = [
+      { name: 'The Fool', position: 'Past' },
+      { name: 'The Magician', position: 'Present' },
+      { name: 'The Star', position: 'Future' }
+    ]
+    const question = 'Test question for debugging'
+    const spread = 'Three Card'
+
+    console.log('🧪 Test reading request received')
+
+    const reading = await aiService.generateTarotReading(cards, question, spread)
+
+    res.json({
+      success: true,
+      reading: reading.content,
+      message: 'Test reading generated successfully',
+      metadata: {
+        provider: reading.provider,
+        model: reading.model,
+        usage: reading.usage
+      }
+    })
+  } catch (error) {
+    console.error('Test reading error:', error)
+    res.status(500).json({
+      error: 'Failed to generate test reading',
+      message: error.message
+    })
+  }
+})
+
+// Generate Tarot Reading
+router.post('/tarot/reading', optionalAuth, async (req, res) => {
+  try {
+    const { cards, question, spread } = req.body
+
+    console.log('🔮 AI Tarot Request:', {
+      timestamp: new Date().toISOString(),
+      userId: req.user?.id,
+      cards: cards?.length || 0,
+      question: question?.substring(0, 50) + '...',
+      spread: spread
+    })
+
+    if (!cards || !Array.isArray(cards) || cards.length === 0) {
+      return res.status(400).json({
+        error: 'Cards array is required'
+      })
+    }
+
+    if (!question || question.trim().length === 0) {
+      return res.status(400).json({
+        error: 'Question is required'
+      })
+    }
+
+    const reading = await aiService.generateTarotReading(cards, question, spread)
+
+    console.log('🔮 AI Tarot Response:', {
+      timestamp: new Date().toISOString(),
+      provider: reading.provider,
+      model: reading.model,
+      responseLength: reading.content?.length || 0
+    })
+
+    res.json({
+      success: true,
+      reading: reading.content,
+      metadata: {
+        provider: reading.provider,
+        model: reading.model,
+        usage: reading.usage
+      }
+    })
+  } catch (error) {
+    console.error('Tarot reading error:', error)
+    res.status(500).json({
+      error: 'Failed to generate tarot reading',
+      message: error.message
+    })
+  }
+})
+
+// Generate Horoscope
+router.post('/horoscope/generate', authenticateToken, async (req, res) => {
+  try {
+    const { sign, type = 'daily' } = req.body
+
+    console.log('🌟 AI Horoscope Request:', {
+      timestamp: new Date().toISOString(),
+      userId: req.user?.id,
+      sign: sign,
+      type: type
+    })
+
+    if (!sign) {
+      return res.status(400).json({
+        error: 'Zodiac sign is required'
+      })
+    }
+
+    const validSigns = ['aries', 'taurus', 'gemini', 'cancer', 'leo', 'virgo',
+                        'libra', 'scorpio', 'sagittarius', 'capricorn', 'aquarius', 'pisces']
+
+    if (!validSigns.includes(sign.toLowerCase())) {
+      return res.status(400).json({
+        error: 'Invalid zodiac sign'
+      })
+    }
+
+    const validTypes = ['daily', 'weekly', 'monthly']
+    if (!validTypes.includes(type.toLowerCase())) {
+      return res.status(400).json({
+        error: 'Invalid horoscope type. Must be daily, weekly, or monthly'
+      })
+    }
+
+    const horoscope = await aiService.generateHoroscope(sign, type)
+
+    res.json({
+      success: true,
+      horoscope: horoscope.content,
+      sign: sign,
+      type: type,
+      metadata: {
+        provider: horoscope.provider,
+        model: horoscope.model,
+        usage: horoscope.usage
+      }
+    })
+  } catch (error) {
+    console.error('Horoscope generation error:', error)
+    res.status(500).json({
+      error: 'Failed to generate horoscope',
+      message: error.message
+    })
+  }
+})
+
+// Generate Mystical Content
+router.post('/mystical/generate', authenticateToken, async (req, res) => {
+  try {
+    const { type, context = {} } = req.body
+
+    if (!type) {
+      return res.status(400).json({
+        error: 'Content type is required'
+      })
+    }
+
+    const validTypes = ['meditation', 'affirmation', 'spiritual-guidance', 'numerology', 'crystal-guidance']
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({
+        error: `Invalid content type. Must be one of: ${validTypes.join(', ')}`
+      })
+    }
+
+    const content = await aiService.generateMysticalContent(type, context)
+
+    res.json({
+      success: true,
+      content: content.content,
+      type: type,
+      metadata: {
+        provider: content.provider,
+        model: content.model,
+        usage: content.usage
+      }
+    })
+  } catch (error) {
+    console.error('Mystical content generation error:', error)
+    res.status(500).json({
+      error: 'Failed to generate mystical content',
+      message: error.message
+    })
+  }
+})
+
+// Switch AI Provider (admin only)
+router.post('/provider/switch', authenticateToken, async (req, res) => {
+  try {
+    const { provider } = req.body
+
+    if (!provider) {
+      return res.status(400).json({
+        error: 'Provider is required'
+      })
+    }
+
+    const validProviders = ['ollama', 'openai', 'together']
+    if (!validProviders.includes(provider.toLowerCase())) {
+      return res.status(400).json({
+        error: `Invalid provider. Must be one of: ${validProviders.join(', ')}`
+      })
+    }
+
+    aiService.switchProvider(provider)
+
+    res.json({
+      success: true,
+      message: `Switched to ${provider} provider`,
+      currentProvider: provider
+    })
+  } catch (error) {
+    console.error('Provider switch error:', error)
+    res.status(500).json({
+      error: 'Failed to switch provider',
+      message: error.message
+    })
+  }
+})
+
+// Get Current Provider Info
+router.get('/provider/current', async (req, res) => {
+  try {
+    const health = await aiService.healthCheck()
+    res.json({
+      provider: health.provider,
+      model: health.model,
+      status: health.status
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to get provider info',
+      message: error.message
+    })
+  }
+})
+
+export default router
