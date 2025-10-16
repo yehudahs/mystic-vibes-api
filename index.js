@@ -28,6 +28,9 @@ import aiRoutes from './routes/ai.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authenticateToken } from './middleware/auth.js'
 
+// Import scheduled jobs
+import { startAllScheduledJobs } from './services/scheduledJobs.js'
+
 const app = express()
 const PORT = process.env.PORT || 3001
 
@@ -51,10 +54,12 @@ app.use(helmet({
 const allowedOrigins = [
   'http://localhost:3000',  // Default frontend port
   'http://localhost:3002',  // Alternative frontend port
+  'http://localhost:3004',  // Alternative frontend port
   'http://localhost:5173',  // Vite default port
   'http://localhost:5174',  // Vite alternative port
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3002',
+  'http://127.0.0.1:3004',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
   process.env.FRONTEND_URL
@@ -170,6 +175,9 @@ app.listen(PORT, () => {
   console.log(`🚀 Vibely AI Server running on port ${PORT}`)
   console.log(`📊 Health check: http://localhost:${PORT}/health`)
   console.log(`🔗 API base URL: http://localhost:${PORT}/api`)
+
+  // Start scheduled jobs for subscription sync
+  startAllScheduledJobs()
 })
 
 // Graceful shutdown

@@ -944,4 +944,148 @@ router.post('/subscription/check-status', authenticateToken, async (req, res) =>
   }
 })
 
+// Admin endpoint: Reconcile all subscriptions with Stripe
+// Useful for catching missed webhooks or recovering from downtime
+router.post('/admin/reconcile-subscriptions', authenticateToken, async (req, res) => {
+  try {
+    const stripeInstance = initializeStripe()
+    if (!stripeInstance) {
+      return res.status(500).json({ error: 'Stripe not configured' })
+    }
+
+    console.log('🔄 Starting subscription reconciliation...')
+
+    // Get all users with subscription data or in "unknown" state
+    const usersResult = await query(`
+      SELECT id, email, stripe_customer_id, subscription_state, last_state_check
+      FROM users
+      WHERE stripe_customer_id IS NOT NULL
+         OR subscription_state = 'unknown'
+         OR subscription_state = 'subscribed'
+    `)
+
+    const reconciliationResults = {
+      total: usersResult.rows.length,
+      updated: 0,
+      noChange: 0,
+      errors: 0,
+      details: []
+    }
+
+    for (const user of usersResult.rows) {
+      try {
+        console.log(`Checking user ${user.email}...`)
+
+        // Find customer in Stripe by email
+        let customerId = user.stripe_customer_id
+        if (!customerId) {
+          const customers = await stripeInstance.customers.list({
+            email: user.email,
+            limit: 1
+          })
+          if (customers.data.length > 0) {
+            customerId = customers.data[0].id
+          }
+        }
+
+        if (!customerId) {
+          reconciliationResults.details.push({
+            userId: user.id,
+            email: user.email,
+            status: 'no_customer'
+          })
+          continue
+        }
+
+        // Get active subscription
+        const subscriptions = await stripeInstance.subscriptions.list({
+          customer: customerId,
+          status: 'active',
+          limit: 1
+        })
+
+        if (subscriptions.data.length > 0) {
+          const subscription = subscriptions.data[0]
+          const priceId = subscription.items.data[0].price.id
+
+          // Update database
+          await query(`
+            UPDATE users
+            SET stripe_customer_id = $1,
+                stripe_subscription_id = $2,
+                stripe_price_id = $3,
+                subscription_status = $4,
+                subscription_current_period_start = $5,
+                subscription_current_period_end = $6,
+                subscription_cancel_at_period_end = $7,
+                subscription_state = 'subscribed',
+                last_state_check = NOW(),
+                state_change_reason = 'Reconciled with Stripe',
+                updated_at = NOW()
+            WHERE id = $8
+          `, [
+            customerId,
+            subscription.id,
+            priceId,
+            subscription.status,
+            new Date(subscription.current_period_start * 1000),
+            new Date(subscription.current_period_end * 1000),
+            subscription.cancel_at_period_end,
+            user.id
+          ])
+
+          reconciliationResults.updated++
+          reconciliationResults.details.push({
+            userId: user.id,
+            email: user.email,
+            status: 'updated',
+            subscriptionId: subscription.id
+          })
+        } else {
+          // No active subscription - mark as unsubscribed
+          await query(`
+            UPDATE users
+            SET subscription_state = 'unsubscribed',
+                last_state_check = NOW(),
+                state_change_reason = 'No active subscription in Stripe',
+                updated_at = NOW()
+            WHERE id = $1
+          `, [user.id])
+
+          reconciliationResults.noChange++
+          reconciliationResults.details.push({
+            userId: user.id,
+            email: user.email,
+            status: 'no_subscription'
+          })
+        }
+      } catch (error) {
+        console.error(`Error reconciling user ${user.email}:`, error)
+        reconciliationResults.errors++
+        reconciliationResults.details.push({
+          userId: user.id,
+          email: user.email,
+          status: 'error',
+          error: error.message
+        })
+      }
+    }
+
+    console.log('✅ Reconciliation complete:', reconciliationResults)
+
+    res.json({
+      success: true,
+      message: 'Subscription reconciliation completed',
+      results: reconciliationResults
+    })
+
+  } catch (error) {
+    console.error('❌ Reconciliation failed:', error)
+    res.status(500).json({
+      error: 'Failed to reconcile subscriptions',
+      details: error.message
+    })
+  }
+})
+
 export default router
