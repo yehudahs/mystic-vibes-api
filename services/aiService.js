@@ -74,11 +74,20 @@ class AIService {
   }
 
   buildTarotPrompt(cards, question, spread) {
+    // Cards come as DrawnCard objects: { card: {...}, position: "...", isReversed: boolean }
+    const cardDescriptions = cards.map(drawnCard => {
+      const card = drawnCard.card || drawnCard // Handle both formats
+      const cardName = card.name || 'Unknown Card'
+      const position = drawnCard.position || 'Unknown Position'
+      const reversed = drawnCard.isReversed ? ' (Reversed)' : ''
+      return `${cardName}${reversed} in ${position} position`
+    }).join(', ')
+
     return `You are a wise and intuitive tarot reader. Provide a mystical and insightful reading.
 
 Question: ${question}
 Spread: ${spread}
-Cards drawn: ${cards.map(card => `${card.name} (${card.position})`).join(', ')}
+Cards drawn: ${cardDescriptions}
 
 Provide a thoughtful interpretation that connects the cards to the question. Be mystical but helpful, offering guidance and reflection. Keep the response between 200-400 words.
 
