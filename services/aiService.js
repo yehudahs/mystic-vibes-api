@@ -57,11 +57,11 @@ class AIService {
     return await this.provider.generateResponse(prompt)
   }
 
-  async generateHoroscope(sign, type = 'daily') {
+  async generateHoroscope(sign, type = 'daily', question = null) {
     if (!this.provider) {
       this.initializeProvider()
     }
-    const prompt = this.buildHoroscopePrompt(sign, type)
+    const prompt = this.buildHoroscopePrompt(sign, type, question)
     return await this.provider.generateResponse(prompt)
   }
 
@@ -85,31 +85,41 @@ class AIService {
 
     return `You are a wise and intuitive tarot reader. Provide a mystical and insightful reading.
 
-Question: ${question}
+Question: "${question}"
 Spread: ${spread}
 Cards drawn: ${cardDescriptions}
 
-Provide a thoughtful interpretation that connects the cards to the question. Be mystical but helpful, offering guidance and reflection. Keep the response between 200-400 words.
+IMPORTANT: Begin your reading by directly addressing the querent's question. Reference their specific question throughout your interpretation. Connect each card's meaning to their inquiry about "${question}".
+
+Provide a thoughtful interpretation that clearly answers their question using the wisdom of the cards. Be mystical but practical, offering specific guidance they can apply to their situation. Keep the response between 200-400 words.
 
 Reading:`
   }
 
-  buildHoroscopePrompt(sign, type) {
+  buildHoroscopePrompt(sign, type, question = null) {
     const today = new Date().toLocaleDateString()
+    const questionSection = question
+      ? `\nSpecific Question: "${question}"\n\nIMPORTANT: Address their question about "${question}" in the context of their ${type} horoscope. Focus your guidance on their specific inquiry while still providing general insights.`
+      : '\nProvide insights about love, career, health, and general guidance.'
+
     return `You are a mystical astrologer. Create a ${type} horoscope for ${sign}.
 
 Date: ${today}
 Sign: ${sign}
-Type: ${type}
+Type: ${type}${questionSection}
 
-Provide insights about love, career, health, and general guidance. Be optimistic yet realistic. Include specific advice they can act on. Keep it between 150-250 words.
+Be optimistic yet realistic. Include specific advice they can act on. Keep it between 150-250 words.
 
 Horoscope:`
   }
 
   buildMysticalPrompt(type, context) {
+    const questionSection = context.question
+      ? `\nSpecific Question: "${context.question}"\n\nIMPORTANT: Address their question about "${context.question}" in the context of your ${type} reading. Focus on how the insights relate to their specific inquiry.`
+      : ''
+
     return `You are a mystical guide providing ${type} insights.
-Context: ${JSON.stringify(context)}
+Context: ${JSON.stringify(context)}${questionSection}
 
 Provide wise, mystical guidance that feels authentic and helpful. Keep response between 100-300 words.
 

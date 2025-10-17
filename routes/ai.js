@@ -107,13 +107,14 @@ router.post('/tarot/reading', optionalAuth, async (req, res) => {
 // Generate Horoscope
 router.post('/horoscope/generate', authenticateToken, async (req, res) => {
   try {
-    const { sign, type = 'daily' } = req.body
+    const { sign, type = 'daily', question = null } = req.body
 
     console.log('🌟 AI Horoscope Request:', {
       timestamp: new Date().toISOString(),
       userId: req.user?.id,
       sign: sign,
-      type: type
+      type: type,
+      hasQuestion: !!question
     })
 
     if (!sign) {
@@ -138,7 +139,7 @@ router.post('/horoscope/generate', authenticateToken, async (req, res) => {
       })
     }
 
-    const horoscope = await aiService.generateHoroscope(sign, type)
+    const horoscope = await aiService.generateHoroscope(sign, type, question)
 
     res.json({
       success: true,
