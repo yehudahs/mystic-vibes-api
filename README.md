@@ -134,6 +134,88 @@ npm run setup:db
 tail -f *.log
 ```
 
+## AI Integration with Ollama
+
+The API uses Ollama for AI-powered features (tarot readings, horoscopes, numerology).
+
+### Local Ollama Setup
+
+1. **Install Ollama** (if not already installed):
+   ```bash
+   # macOS/Linux
+   curl -fsSL https://ollama.ai/install.sh | sh
+   ```
+
+2. **Pull the model**:
+   ```bash
+   ollama pull llama3.2:3b
+   ```
+
+3. **Start Ollama**:
+   ```bash
+   ollama serve
+   ```
+
+4. **Configure .env**:
+   ```env
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_MODEL=llama3.2:3b
+   ```
+
+### ngrok Setup (Remote Access)
+
+To expose your local Ollama instance for remote access (useful for deployed frontends or mobile testing):
+
+1. **Install ngrok**:
+   ```bash
+   # macOS
+   brew install ngrok
+
+   # Or download from https://ngrok.com/download
+   ```
+
+2. **Authenticate ngrok** (one-time setup):
+   ```bash
+   # Get your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
+   ngrok config add-authtoken YOUR_TOKEN_HERE
+   ```
+
+3. **Start Ollama** (must be running first):
+   ```bash
+   ollama serve
+   ```
+
+4. **Start ngrok tunnel**:
+   ```bash
+   ./start-ngrok.sh
+   ```
+
+   This will output a public URL like: `https://xxxx-xxxx-xxxx.ngrok-free.app`
+
+5. **Update .env** with the ngrok URL:
+   ```env
+   OLLAMA_BASE_URL=https://your-ngrok-url.ngrok-free.app
+   OLLAMA_MODEL=llama3.2:3b
+   ```
+
+6. **Restart the server** to use the new URL:
+   ```bash
+   npm run dev
+   ```
+
+7. **Stop ngrok when done**:
+   ```bash
+   ./stop-ngrok.sh
+   ```
+
+### Important Notes
+
+- **ngrok Header**: The API automatically adds `ngrok-skip-browser-warning: true` header for ngrok free tier compatibility
+- **Security**: ngrok exposes your Ollama to the internet - only use for development/testing
+- **URL Changes**: Free ngrok URLs change on restart - update `.env` after each ngrok restart
+- **Monitoring**: Access ngrok dashboard at `http://localhost:4040` when running
+- **Fallback**: If ngrok fails, the app falls back to localhost automatically
+
 ## Deployment
 
 ### Railway
