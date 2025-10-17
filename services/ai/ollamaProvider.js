@@ -1,4 +1,5 @@
 import axios from 'axios'
+import ollamaMonitor from '../ollamaMonitor.js'
 
 class OllamaProvider {
   constructor(config) {
@@ -60,6 +61,8 @@ class OllamaProvider {
         status: response.status
       }
 
+      // Log to monitor
+      ollamaMonitor.logRequest(requestData)
 
       return {
         success: true,
@@ -81,6 +84,8 @@ class OllamaProvider {
         status: error.response?.status || 0
       }
 
+      // Log to monitor
+      ollamaMonitor.logRequest(requestData)
 
       console.error('Ollama API Error:', error.message)
 

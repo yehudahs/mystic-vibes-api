@@ -1,5 +1,6 @@
 import express from 'express'
 import aiService from '../services/aiService.js'
+import ollamaMonitor from '../services/ollamaMonitor.js'
 import { authenticateToken, optionalAuth } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -244,6 +245,61 @@ router.get('/provider/current', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: 'Failed to get provider info',
+      message: error.message
+    })
+  }
+})
+
+// ===== Ollama Monitoring Endpoints =====
+
+// Get Ollama request history
+router.get('/monitor/requests', (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50
+    const requests = ollamaMonitor.getRequests(limit)
+
+    res.json({
+      success: true,
+      count: requests.length,
+      requests: requests
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to get request history',
+      message: error.message
+    })
+  }
+})
+
+// Get Ollama monitoring statistics
+router.get('/monitor/stats', (req, res) => {
+  try {
+    const stats = ollamaMonitor.getStats()
+
+    res.json({
+      success: true,
+      stats: stats
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to get monitoring stats',
+      message: error.message
+    })
+  }
+})
+
+// Clear monitoring history (admin only - can be protected with auth if needed)
+router.post('/monitor/clear', authenticateToken, (req, res) => {
+  try {
+    ollamaMonitor.clear()
+
+    res.json({
+      success: true,
+      message: 'Monitoring history cleared'
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to clear monitoring history',
       message: error.message
     })
   }
