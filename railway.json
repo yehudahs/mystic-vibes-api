@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "npm run start",
+    "startCommand": "node setup-database.js && npm run start",
     "numReplicas": 1,
     "restartPolicyType": "ON_FAILURE",
     "healthcheckPath": "/health",
