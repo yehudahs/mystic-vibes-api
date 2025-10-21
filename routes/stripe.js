@@ -156,11 +156,10 @@ router.post('/verify-session', authenticateToken, async (req, res) => {
            SET stripe_customer_id = $1,
                stripe_subscription_id = $2,
                stripe_price_id = $3,
-               subscription_status = $4,
+               subscription_status = 'subscribed',
                subscription_current_period_start = $5,
                subscription_current_period_end = $6,
                subscription_cancel_at_period_end = $7,
-               subscription_state = 'subscribed',
                last_state_check = NOW(),
                state_change_reason = 'Payment verified successfully',
                updated_at = NOW()
@@ -269,11 +268,10 @@ router.post('/sync-subscription', authenticateToken, async (req, res) => {
        SET stripe_customer_id = $1,
            stripe_subscription_id = $2,
            stripe_price_id = $3,
-           subscription_status = $4,
+           subscription_status = 'subscribed',
            subscription_current_period_start = $5,
            subscription_current_period_end = $6,
            subscription_cancel_at_period_end = $7,
-           subscription_state = 'subscribed',
            last_state_check = NOW(),
            state_change_reason = 'Synced from Stripe',
            updated_at = NOW()
@@ -423,7 +421,7 @@ router.post('/create-portal-session', authenticateToken, async (req, res) => {
     try {
       await query(
         `UPDATE users
-         SET subscription_state = 'unknown',
+         SET subscription_status = 'unknown',
              last_state_check = NOW(),
              state_change_reason = 'Customer portal session initiated',
              updated_at = NOW()
@@ -568,11 +566,10 @@ router.post('/webhook', async (req, res) => {
                  SET stripe_customer_id = $1,
                      stripe_subscription_id = $2,
                      stripe_price_id = $3,
-                     subscription_status = $4,
+                     subscription_status = 'subscribed',
                      subscription_current_period_start = $5,
                      subscription_current_period_end = $6,
                      subscription_cancel_at_period_end = $7,
-                     subscription_state = 'subscribed',
                      last_state_check = NOW(),
                      state_change_reason = 'Payment completed via webhook',
                      updated_at = NOW()
@@ -653,27 +650,24 @@ router.post('/webhook', async (req, res) => {
                    subscription_cancel_at_period_end = $2,
                    subscription_current_period_end = $3,
                    subscription_canceled_at = $4,
-                   subscription_state = $5,
                    last_state_check = NOW(),
-                   state_change_reason = $6,
+                   state_change_reason = $5,
                    updated_at = NOW()
-               WHERE stripe_subscription_id = $7`
+               WHERE stripe_subscription_id = $6`
             : `UPDATE users
                SET subscription_status = $1,
                    subscription_cancel_at_period_end = $2,
                    subscription_canceled_at = $3,
-                   subscription_state = $4,
                    last_state_check = NOW(),
-                   state_change_reason = $5,
+                   state_change_reason = $4,
                    updated_at = NOW()
-               WHERE stripe_subscription_id = $6`,
+               WHERE stripe_subscription_id = $5`,
           periodEndToUpdate
             ? [
                 updatedSubscription.status,
                 updatedSubscription.cancel_at_period_end,
                 periodEndToUpdate,
                 updatedSubscription.canceled_at ? new Date(updatedSubscription.canceled_at * 1000) : null,
-                subscriptionState,
                 stateChangeReason,
                 updatedSubscription.id
               ]
@@ -681,7 +675,6 @@ router.post('/webhook', async (req, res) => {
                 updatedSubscription.status,
                 updatedSubscription.cancel_at_period_end,
                 updatedSubscription.canceled_at ? new Date(updatedSubscription.canceled_at * 1000) : null,
-                subscriptionState,
                 stateChangeReason,
                 updatedSubscription.id
               ]
@@ -720,10 +713,9 @@ router.post('/webhook', async (req, res) => {
         // For immediate cancellations, also set cancel_at_period_end = true so the UI shows cancellation details
         const updateResult = await query(
           `UPDATE users
-           SET subscription_status = 'canceled',
+           SET subscription_status = 'unsubscribed',
                subscription_cancel_at_period_end = true,
                subscription_canceled_at = $1,
-               subscription_state = 'unsubscribed',
                last_state_check = NOW(),
                state_change_reason = 'Subscription deleted via webhook',
                updated_at = NOW()
@@ -782,7 +774,7 @@ router.post('/subscription/state', authenticateToken, async (req, res) => {
 
     await query(
       `UPDATE users
-       SET subscription_state = $1,
+       SET subscription_status = $1,
            last_state_check = $2,
            state_change_reason = $3,
            updated_at = NOW()
@@ -874,11 +866,10 @@ router.post('/subscription/check-status', authenticateToken, async (req, res) =>
            SET stripe_customer_id = $1,
                stripe_subscription_id = $2,
                stripe_price_id = $3,
-               subscription_status = $4,
+               subscription_status = 'subscribed',
                subscription_current_period_start = $5,
                subscription_current_period_end = $6,
                subscription_cancel_at_period_end = $7,
-               subscription_state = 'subscribed',
                last_state_check = NOW(),
                state_change_reason = 'Confirmed active by Stripe status check',
                updated_at = NOW()
@@ -900,7 +891,7 @@ router.post('/subscription/check-status', authenticateToken, async (req, res) =>
         // No active subscription found - set state to 'unsubscribed'
         await query(
           `UPDATE users
-           SET subscription_state = 'unsubscribed',
+           SET subscription_status = 'unsubscribed',
                last_state_check = NOW(),
                state_change_reason = 'No active subscription found in Stripe',
                updated_at = NOW()
@@ -914,7 +905,7 @@ router.post('/subscription/check-status', authenticateToken, async (req, res) =>
       // No customer found in Stripe - set state to 'unsubscribed'
       await query(
         `UPDATE users
-         SET subscription_state = 'unsubscribed',
+         SET subscription_status = 'unsubscribed',
              last_state_check = NOW(),
              state_change_reason = 'No customer found in Stripe',
              updated_at = NOW()
@@ -957,11 +948,11 @@ router.post('/admin/reconcile-subscriptions', authenticateToken, async (req, res
 
     // Get all users with subscription data or in "unknown" state
     const usersResult = await query(`
-      SELECT id, email, stripe_customer_id, subscription_state, last_state_check
+      SELECT id, email, stripe_customer_id, subscription_status, last_state_check
       FROM users
       WHERE stripe_customer_id IS NOT NULL
-         OR subscription_state = 'unknown'
-         OR subscription_state = 'subscribed'
+         OR subscription_status = 'unknown'
+         OR subscription_status = 'subscribed'
     `)
 
     const reconciliationResults = {
@@ -1014,11 +1005,10 @@ router.post('/admin/reconcile-subscriptions', authenticateToken, async (req, res
             SET stripe_customer_id = $1,
                 stripe_subscription_id = $2,
                 stripe_price_id = $3,
-                subscription_status = $4,
+                subscription_status = 'subscribed',
                 subscription_current_period_start = $5,
                 subscription_current_period_end = $6,
                 subscription_cancel_at_period_end = $7,
-                subscription_state = 'subscribed',
                 last_state_check = NOW(),
                 state_change_reason = 'Reconciled with Stripe',
                 updated_at = NOW()
@@ -1045,7 +1035,7 @@ router.post('/admin/reconcile-subscriptions', authenticateToken, async (req, res
           // No active subscription - mark as unsubscribed
           await query(`
             UPDATE users
-            SET subscription_state = 'unsubscribed',
+            SET subscription_status = 'unsubscribed',
                 last_state_check = NOW(),
                 state_change_reason = 'No active subscription in Stripe',
                 updated_at = NOW()
