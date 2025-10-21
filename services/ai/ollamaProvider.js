@@ -152,6 +152,101 @@ class OllamaProvider {
       throw new Error(`Failed to pull model ${modelName}: ${error.message}`)
     }
   }
+
+  async analyzeImage(imageBase64, prompt, visionModel = 'llava') {
+    const startTime = Date.now()
+    let requestData = {
+      method: 'POST',
+      endpoint: '/api/chat',
+      prompt: prompt,
+      model: visionModel,
+      success: false,
+      duration: 0,
+      hasImage: true
+    }
+
+    try {
+      console.log(`🔗 OllamaProvider analyzing image with: ${this.baseUrl}/api/chat`)
+
+      const requestBody = {
+        model: visionModel,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+            images: [imageBase64]
+          }
+        ],
+        stream: false,
+        options: {
+          temperature: 0.7,
+          top_p: 0.9,
+          top_k: 40
+        }
+      }
+
+      const response = await this.client.post('/api/chat', requestBody)
+
+      const endTime = Date.now()
+      const duration = endTime - startTime
+
+      const usage = {
+        prompt_tokens: response.data.prompt_eval_count || 0,
+        completion_tokens: response.data.eval_count || 0,
+        total_tokens: (response.data.prompt_eval_count || 0) + (response.data.eval_count || 0)
+      }
+
+      const responseContent = response.data.message?.content?.trim() || ''
+
+      // Update request data for monitoring
+      requestData = {
+        ...requestData,
+        success: true,
+        duration,
+        usage,
+        responseLength: responseContent.length,
+        status: response.status
+      }
+
+      // Log to monitor
+      ollamaMonitor.logRequest(requestData)
+
+      return {
+        success: true,
+        content: responseContent,
+        provider: 'ollama',
+        model: visionModel,
+        usage
+      }
+    } catch (error) {
+      const endTime = Date.now()
+      const duration = endTime - startTime
+
+      // Update request data for monitoring (error case)
+      requestData = {
+        ...requestData,
+        success: false,
+        duration,
+        error: error.message,
+        status: error.response?.status || 0
+      }
+
+      // Log to monitor
+      ollamaMonitor.logRequest(requestData)
+
+      console.error('Ollama Vision API Error:', error.message)
+
+      if (error.code === 'ECONNREFUSED') {
+        throw new Error('Ollama service is not running. Please start Ollama first.')
+      }
+
+      if (error.response?.status === 404) {
+        throw new Error(`Vision model "${visionModel}" not found. Please pull the model first: ollama pull ${visionModel}`)
+      }
+
+      throw new Error(`Ollama Vision API error: ${error.message}`)
+    }
+  }
 }
 
 export default OllamaProvider

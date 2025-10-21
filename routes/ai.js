@@ -228,6 +228,58 @@ router.post('/mystical/generate', authenticateToken, async (req, res) => {
   }
 })
 
+// Generate Palm Reading from Image
+router.post('/palm/reading', optionalAuth, async (req, res) => {
+  try {
+    const { image, question } = req.body
+    const userId = req.user?.id
+
+    console.log('✋ AI Palm Reading Request:', {
+      timestamp: new Date().toISOString(),
+      userId: userId,
+      hasImage: !!image,
+      hasQuestion: !!question
+    })
+
+    if (!image) {
+      return res.status(400).json({
+        error: 'Image is required (base64 encoded)'
+      })
+    }
+
+    // Remove data URL prefix if present (data:image/jpeg;base64,...)
+    let imageBase64 = image
+    if (image.includes('base64,')) {
+      imageBase64 = image.split('base64,')[1]
+    }
+
+    const reading = await aiService.generatePalmReading(imageBase64, question)
+
+    console.log('✋ AI Palm Reading Response:', {
+      timestamp: new Date().toISOString(),
+      provider: reading.provider,
+      model: reading.model,
+      responseLength: reading.content?.length || 0
+    })
+
+    res.json({
+      success: true,
+      reading: reading.content,
+      metadata: {
+        provider: reading.provider,
+        model: reading.model,
+        usage: reading.usage
+      }
+    })
+  } catch (error) {
+    console.error('Palm reading error:', error)
+    res.status(500).json({
+      error: 'Failed to generate palm reading',
+      message: error.message
+    })
+  }
+})
+
 // Switch AI Provider (admin only)
 router.post('/provider/switch', authenticateToken, async (req, res) => {
   try {

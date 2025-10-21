@@ -73,6 +73,20 @@ class AIService {
     return await this.provider.generateResponse(prompt)
   }
 
+  async generatePalmReading(imageBase64, question = null) {
+    if (!this.provider) {
+      this.initializeProvider()
+    }
+
+    // Check if provider supports image analysis
+    if (typeof this.provider.analyzeImage !== 'function') {
+      throw new Error(`Provider ${this.providerType} does not support image analysis. Please use Ollama with a vision model like llava.`)
+    }
+
+    const prompt = this.buildPalmReadingPrompt(question)
+    return await this.provider.analyzeImage(imageBase64, prompt)
+  }
+
   buildTarotPrompt(cards, question, spread) {
     // Cards come as DrawnCard objects: { card: {...}, position: "...", isReversed: boolean }
     const cardDescriptions = cards.map(drawnCard => {
@@ -124,6 +138,30 @@ Context: ${JSON.stringify(context)}${questionSection}
 Provide wise, mystical guidance that feels authentic and helpful. Keep response between 100-300 words.
 
 Guidance:`
+  }
+
+  buildPalmReadingPrompt(question = null) {
+    const questionSection = question
+      ? `\n\nSpecific Question: "${question}"\n\nIMPORTANT: Analyze the palm in the context of their question about "${question}". Connect the palm's features to their specific inquiry while providing a comprehensive reading.`
+      : ''
+
+    return `You are an expert palmist and chiromancer. Analyze the palm shown in this image and provide a detailed, insightful palm reading.
+
+In your analysis, examine:
+1. **Major Lines**: Heart line (emotions, relationships), Head line (intellect, thinking), Life line (vitality, life path), and Fate line (career, destiny) if visible
+2. **Minor Lines**: If visible, comment on lines like the Sun line, Mercury line, or others
+3. **Mounts**: The raised areas on the palm (Venus, Jupiter, Saturn, etc.) and what they reveal
+4. **Hand Shape**: Overall shape, finger length, and what these indicate about personality
+5. **Special Markings**: Any significant crosses, stars, or other marks${questionSection}
+
+Provide a mystical yet insightful reading that feels authentic and personal. Include:
+- What the palm reveals about their personality and life path
+- Guidance for their future based on the palm's features
+- Specific insights they can apply to their life
+
+Keep your reading between 300-500 words. Be warm, encouraging, and mystical in tone.
+
+Palm Reading:`
   }
 
   async healthCheck() {
