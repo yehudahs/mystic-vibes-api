@@ -80,7 +80,8 @@ async function setupDatabase() {
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_start TIMESTAMP WITH TIME ZONE',
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_end TIMESTAMP WITH TIME ZONE',
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_cancel_at_period_end BOOLEAN DEFAULT false',
-        'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_canceled_at TIMESTAMP WITH TIME ZONE'
+        'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_canceled_at TIMESTAMP WITH TIME ZONE',
+        'ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_context JSONB DEFAULT NULL'
       ]
 
       for (const sql of subscriptionColumns) {
@@ -144,7 +145,8 @@ async function setupDatabase() {
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_start TIMESTAMP WITH TIME ZONE',
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_end TIMESTAMP WITH TIME ZONE',
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_cancel_at_period_end BOOLEAN DEFAULT false',
-          'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_canceled_at TIMESTAMP WITH TIME ZONE'
+          'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_canceled_at TIMESTAMP WITH TIME ZONE',
+          'ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_context JSONB DEFAULT NULL'
         ]
 
         for (const sql of subscriptionColumns) {

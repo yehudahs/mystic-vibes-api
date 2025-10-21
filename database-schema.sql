@@ -20,7 +20,10 @@ CREATE TABLE users (
     subscription_current_period_end TIMESTAMP WITH TIME ZONE,
     subscription_cancel_at_period_end BOOLEAN DEFAULT false,
     subscription_canceled_at TIMESTAMP WITH TIME ZONE,
-    
+
+    -- AI context for personalized tarot readings
+    ai_context JSONB DEFAULT NULL,
+
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     last_login_at TIMESTAMP WITH TIME ZONE

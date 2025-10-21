@@ -15,7 +15,7 @@ class OllamaProvider {
     })
   }
 
-  async generateResponse(prompt) {
+  async generateResponse(prompt, context = null) {
     const startTime = Date.now()
     let requestData = {
       method: 'POST',
@@ -29,7 +29,7 @@ class OllamaProvider {
     try {
       console.log(`🔗 OllamaProvider making request to: ${this.baseUrl}/api/generate`)
 
-      const response = await this.client.post('/api/generate', {
+      const requestBody = {
         model: this.model,
         prompt: prompt,
         stream: false,
@@ -38,7 +38,15 @@ class OllamaProvider {
           top_p: 0.9,
           top_k: 40
         }
-      })
+      }
+
+      // Add context if provided for conversation continuity
+      if (context && Array.isArray(context) && context.length > 0) {
+        requestBody.context = context
+        console.log('📝 Using context from previous conversation:', context.length, 'tokens')
+      }
+
+      const response = await this.client.post('/api/generate', requestBody)
 
       const endTime = Date.now()
       const duration = endTime - startTime
@@ -69,7 +77,8 @@ class OllamaProvider {
         content: responseContent,
         provider: 'ollama',
         model: this.model,
-        usage
+        usage,
+        context: response.data.context || null // Return context for next conversation
       }
     } catch (error) {
       const endTime = Date.now()

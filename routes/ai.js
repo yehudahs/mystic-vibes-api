@@ -2,6 +2,7 @@ import express from 'express'
 import aiService from '../services/aiService.js'
 import ollamaMonitor from '../services/ollamaMonitor.js'
 import { authenticateToken, optionalAuth } from '../middleware/auth.js'
+import { pool } from '../config/database.js'
 
 const router = express.Router()
 
@@ -56,10 +57,11 @@ router.post('/test/reading', async (req, res) => {
 router.post('/tarot/reading', optionalAuth, async (req, res) => {
   try {
     const { cards, question, spread } = req.body
+    const userId = req.user?.id
 
     console.log('🔮 AI Tarot Request:', {
       timestamp: new Date().toISOString(),
-      userId: req.user?.id,
+      userId: userId,
       cards: cards?.length || 0,
       question: question?.substring(0, 50) + '...',
       spread: spread
@@ -77,13 +79,39 @@ router.post('/tarot/reading', optionalAuth, async (req, res) => {
       })
     }
 
-    const reading = await aiService.generateTarotReading(cards, question, spread)
+    // Load user's context from database if authenticated
+    let userContext = null
+    if (userId) {
+      const contextResult = await pool.query(
+        'SELECT ai_context FROM users WHERE id = $1',
+        [userId]
+      )
+      const contextJson = contextResult.rows[0]?.ai_context
+      if (contextJson) {
+        // Parse JSON string back to array
+        userContext = typeof contextJson === 'string' ? JSON.parse(contextJson) : contextJson
+        console.log('💭 Loaded user context:', userContext.length, 'tokens')
+      }
+    }
+
+    // Generate reading with context
+    const reading = await aiService.generateTarotReading(cards, question, spread, userContext)
+
+    // Save updated context back to database if authenticated and context was returned
+    if (userId && reading.context) {
+      await pool.query(
+        'UPDATE users SET ai_context = $1 WHERE id = $2',
+        [JSON.stringify(reading.context), userId]
+      )
+      console.log('💾 Saved new context:', reading.context.length, 'tokens')
+    }
 
     console.log('🔮 AI Tarot Response:', {
       timestamp: new Date().toISOString(),
       provider: reading.provider,
       model: reading.model,
-      responseLength: reading.content?.length || 0
+      responseLength: reading.content?.length || 0,
+      contextSaved: !!reading.context
     })
 
     res.json({

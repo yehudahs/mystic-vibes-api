@@ -49,12 +49,12 @@ class AIService {
     }
   }
 
-  async generateTarotReading(cards, question, spread) {
+  async generateTarotReading(cards, question, spread, context = null) {
     if (!this.provider) {
       this.initializeProvider()
     }
     const prompt = this.buildTarotPrompt(cards, question, spread)
-    return await this.provider.generateResponse(prompt)
+    return await this.provider.generateResponse(prompt, context)
   }
 
   async generateHoroscope(sign, type = 'daily', question = null) {
