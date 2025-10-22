@@ -68,11 +68,11 @@ async function reconcileAllSubscriptions() {
   try {
     // Get all users with subscription data or in "unknown" state
     const usersResult = await query(`
-      SELECT id, email, stripe_customer_id, subscription_status, last_state_check
+      SELECT id, email, stripe_customer_id, stripe_subscription_status, subscription_state, last_state_check
       FROM users
       WHERE stripe_customer_id IS NOT NULL
-         OR subscription_status = 'unknown'
-         OR subscription_status = 'subscribed'
+         OR subscription_state = 'unknown'
+         OR subscription_state = 'subscribed'
     `)
 
     let updated = 0
@@ -114,7 +114,8 @@ async function reconcileAllSubscriptions() {
             SET stripe_customer_id = $1,
                 stripe_subscription_id = $2,
                 stripe_price_id = $3,
-                subscription_status = 'subscribed',
+                stripe_subscription_status = $4,
+                subscription_state = 'subscribed',
                 subscription_current_period_start = $5,
                 subscription_current_period_end = $6,
                 subscription_cancel_at_period_end = $7,
@@ -138,7 +139,7 @@ async function reconcileAllSubscriptions() {
           // No active subscription - mark as unsubscribed
           await query(`
             UPDATE users
-            SET subscription_status = 'unsubscribed',
+            SET subscription_state = 'unsubscribed',
                 last_state_check = NOW(),
                 state_change_reason = 'Daily reconciliation - no active subscription',
                 updated_at = NOW()
@@ -173,7 +174,7 @@ async function checkUnknownSubscriptions() {
     const usersResult = await query(`
       SELECT id, email, stripe_customer_id
       FROM users
-      WHERE subscription_status = 'unknown'
+      WHERE subscription_state = 'unknown'
     `)
 
     if (usersResult.rows.length === 0) {
@@ -199,7 +200,7 @@ async function checkUnknownSubscriptions() {
         if (!customerId) {
           await query(`
             UPDATE users
-            SET subscription_status = 'unsubscribed',
+            SET subscription_state = 'unsubscribed',
                 last_state_check = NOW(),
                 state_change_reason = 'No customer found in Stripe',
                 updated_at = NOW()
@@ -224,7 +225,8 @@ async function checkUnknownSubscriptions() {
             SET stripe_customer_id = $1,
                 stripe_subscription_id = $2,
                 stripe_price_id = $3,
-                subscription_status = 'subscribed',
+                stripe_subscription_status = $4,
+                subscription_state = 'subscribed',
                 subscription_current_period_start = $5,
                 subscription_current_period_end = $6,
                 subscription_cancel_at_period_end = $7,
@@ -246,7 +248,7 @@ async function checkUnknownSubscriptions() {
         } else {
           await query(`
             UPDATE users
-            SET subscription_status = 'unsubscribed',
+            SET subscription_state = 'unsubscribed',
                 last_state_check = NOW(),
                 state_change_reason = 'No active subscription in Stripe',
                 updated_at = NOW()
@@ -275,16 +277,16 @@ async function handleGracePeriods() {
     const gracePeriodResult = await query(`
       SELECT id, email, subscription_current_period_end
       FROM users
-      WHERE subscription_status = 'past_due'
+      WHERE stripe_subscription_status = 'past_due'
         AND subscription_current_period_end > NOW() - INTERVAL '3 days'
-        AND subscription_status != 'subscribed'
+        AND subscription_state != 'subscribed'
     `)
 
     if (gracePeriodResult.rows.length > 0) {
       for (const user of gracePeriodResult.rows) {
         await query(`
           UPDATE users
-          SET subscription_status = 'subscribed',
+          SET subscription_state = 'subscribed',
               state_change_reason = 'Grace period active (3 days)',
               last_state_check = NOW()
           WHERE id = $1
@@ -298,16 +300,16 @@ async function handleGracePeriods() {
     const expiredGraceResult = await query(`
       SELECT id, email
       FROM users
-      WHERE subscription_status = 'past_due'
+      WHERE stripe_subscription_status = 'past_due'
         AND subscription_current_period_end < NOW() - INTERVAL '3 days'
-        AND subscription_status = 'subscribed'
+        AND subscription_state = 'subscribed'
     `)
 
     if (expiredGraceResult.rows.length > 0) {
       for (const user of expiredGraceResult.rows) {
         await query(`
           UPDATE users
-          SET subscription_status = 'unsubscribed',
+          SET subscription_state = 'unsubscribed',
               state_change_reason = 'Grace period expired',
               last_state_check = NOW()
           WHERE id = $1
