@@ -153,7 +153,7 @@ class OllamaProvider {
     }
   }
 
-  async analyzeImage(imageBase64, prompt, visionModel = 'llava') {
+  async analyzeImage(imageBase64, prompt, visionModel = 'llama3.2-vision:11b') {
     const startTime = Date.now()
     let requestData = {
       method: 'POST',

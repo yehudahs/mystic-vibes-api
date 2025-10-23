@@ -259,12 +259,16 @@ router.post('/palm/reading', optionalAuth, async (req, res) => {
       timestamp: new Date().toISOString(),
       provider: reading.provider,
       model: reading.model,
-      responseLength: reading.content?.length || 0
+      responseLength: reading.content?.length || 0,
+      hasAnnotatedImage: !!reading.annotated_image,
+      featuresDetected: reading.features_detected?.length || 0
     })
 
     res.json({
       success: true,
       reading: reading.content,
+      annotated_image: reading.annotated_image,
+      features_detected: reading.features_detected,
       metadata: {
         provider: reading.provider,
         model: reading.model,
@@ -326,6 +330,102 @@ router.get('/provider/current', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: 'Failed to get provider info',
+      message: error.message
+    })
+  }
+})
+
+// Generate Personalized Content (for welcome messages, etc.)
+router.post('/personalization/generate', optionalAuth, async (req, res) => {
+  try {
+    const { prompt, model = 'llama3.2:3b' } = req.body
+    const userId = req.user?.id
+
+    console.log('✨ AI Personalization Request:', {
+      timestamp: new Date().toISOString(),
+      userId: userId,
+      promptLength: prompt?.length || 0
+    })
+
+    if (!prompt || prompt.trim().length === 0) {
+      return res.status(400).json({
+        error: 'Prompt is required'
+      })
+    }
+
+    // Use the mystical content generator with personalization context
+    const content = await aiService.generateMysticalContent('spiritual-guidance', {
+      prompt: prompt,
+      model: model
+    })
+
+    console.log('✨ AI Personalization Response:', {
+      timestamp: new Date().toISOString(),
+      provider: content.provider,
+      responseLength: content.content?.length || 0
+    })
+
+    res.json({
+      success: true,
+      response: content.content,
+      metadata: {
+        provider: content.provider,
+        model: content.model,
+        usage: content.usage
+      }
+    })
+  } catch (error) {
+    console.error('Personalization generation error:', error)
+    res.status(500).json({
+      error: 'Failed to generate personalized content',
+      message: error.message
+    })
+  }
+})
+
+// Generate Numerology Reading
+router.post('/numerology/generate', optionalAuth, async (req, res) => {
+  try {
+    const { prompt, model = 'llama3.2:3b' } = req.body
+    const userId = req.user?.id
+
+    console.log('🔢 AI Numerology Request:', {
+      timestamp: new Date().toISOString(),
+      userId: userId,
+      promptLength: prompt?.length || 0
+    })
+
+    if (!prompt || prompt.trim().length === 0) {
+      return res.status(400).json({
+        error: 'Prompt is required'
+      })
+    }
+
+    // Use the mystical content generator with numerology context
+    const content = await aiService.generateMysticalContent('numerology', {
+      prompt: prompt,
+      model: model
+    })
+
+    console.log('🔢 AI Numerology Response:', {
+      timestamp: new Date().toISOString(),
+      provider: content.provider,
+      responseLength: content.content?.length || 0
+    })
+
+    res.json({
+      success: true,
+      response: content.content,
+      metadata: {
+        provider: content.provider,
+        model: content.model,
+        usage: content.usage
+      }
+    })
+  } catch (error) {
+    console.error('Numerology generation error:', error)
+    res.status(500).json({
+      error: 'Failed to generate numerology reading',
       message: error.message
     })
   }

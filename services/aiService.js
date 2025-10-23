@@ -1,6 +1,7 @@
 import OllamaProvider from './ai/ollamaProvider.js'
 import OpenAIProvider from './ai/openaiProvider.js'
 import TogetherProvider from './ai/togetherProvider.js'
+import axios from 'axios'
 
 class AIService {
   constructor() {
@@ -84,7 +85,36 @@ class AIService {
     }
 
     const prompt = this.buildPalmReadingPrompt(question)
-    return await this.provider.analyzeImage(imageBase64, prompt)
+    const reading = await this.provider.analyzeImage(imageBase64, prompt)
+
+    // Call annotation service to add colored lines to the palm image
+    try {
+      const annotationUrl = process.env.PALM_ANNOTATION_URL || 'http://localhost:5001'
+      console.log('🎨 Calling palm annotation service:', annotationUrl)
+
+      const annotationResponse = await axios.post(`${annotationUrl}/annotate`, {
+        image: imageBase64,
+        analysis: reading.content
+      }, {
+        timeout: 30000 // 30 seconds
+      })
+
+      if (annotationResponse.data.success) {
+        console.log(`✅ Palm annotated successfully! Detected ${annotationResponse.data.features_detected} features`)
+
+        // Add annotated image to the response
+        reading.annotated_image = annotationResponse.data.annotated_image
+        reading.features_detected = annotationResponse.data.features
+      } else {
+        console.warn('⚠️ Palm annotation failed:', annotationResponse.data.error)
+        // Continue without annotation
+      }
+    } catch (error) {
+      console.error('❌ Palm annotation service error:', error.message)
+      // Continue without annotation - don't fail the whole request
+    }
+
+    return reading
   }
 
   buildTarotPrompt(cards, question, spread) {
@@ -145,21 +175,60 @@ Guidance:`
       ? `\n\nSpecific Question: "${question}"\n\nIMPORTANT: Analyze the palm in the context of their question about "${question}". Connect the palm's features to their specific inquiry while providing a comprehensive reading.`
       : ''
 
-    return `You are an expert palmist and chiromancer. Analyze the palm shown in this image and provide a detailed, insightful palm reading.
+    return `You are a master palmist with decades of experience in chiromancy and palm reading. Carefully examine EVERY detail visible in this palm image and provide an exceptionally thorough, accurate analysis.
 
-In your analysis, examine:
-1. **Major Lines**: Heart line (emotions, relationships), Head line (intellect, thinking), Life line (vitality, life path), and Fate line (career, destiny) if visible
-2. **Minor Lines**: If visible, comment on lines like the Sun line, Mercury line, or others
-3. **Mounts**: The raised areas on the palm (Venus, Jupiter, Saturn, etc.) and what they reveal
-4. **Hand Shape**: Overall shape, finger length, and what these indicate about personality
-5. **Special Markings**: Any significant crosses, stars, or other marks${questionSection}
+CRITICAL INSTRUCTIONS:
+1. Study the image carefully before responding
+2. Describe EXACTLY what you see in the palm - specific line positions, curves, breaks, depth
+3. Be highly detailed and specific about each line's characteristics
+4. Note the precise location where lines start and end
+5. Identify ALL visible lines, not just major ones
 
-Provide a mystical yet insightful reading that feels authentic and personal. Include:
-- What the palm reveals about their personality and life path
-- Guidance for their future based on the palm's features
-- Specific insights they can apply to their life
+DETAILED PALM ANALYSIS FRAMEWORK:
 
-Keep your reading between 300-500 words. Be warm, encouraging, and mystical in tone.
+**MAJOR LINES** (Examine each carefully):
+- **Heart Line** (horizontal line near fingers): Describe its exact path, depth, length, any branches or breaks. Does it curve upward or stay straight? Are there any chains, islands, or crosses on it?
+- **Head Line** (middle horizontal line): Note if it's straight or curved, deep or faint, long or short. Look for breaks, forks at the end, or unusual formations.
+- **Life Line** (curves around thumb): Trace its exact arc. Is it deep and strong or faint? Are there breaks, chains, or sister lines parallel to it?
+- **Fate Line** (vertical from wrist toward middle finger): Does it exist? If yes, where does it start and end? Is it continuous or broken?
+
+**MINOR LINES** (if visible):
+- Sun Line (Apollo Line): vertical toward ring finger
+- Mercury Line (Health Line): from wrist toward pinky
+- Marriage/Relationship Lines: small horizontal lines on edge of palm under pinky
+- Children Lines: small vertical lines above marriage lines
+- Travel Lines: horizontal lines on edge of palm opposite thumb
+- Intuition Line: curved line on lunar mount
+
+**MOUNTS** (raised pads on palm):
+- Mount of Venus (base of thumb): fullness indicates passion
+- Mount of Jupiter (base of index): leadership qualities
+- Mount of Saturn (base of middle): wisdom and responsibility
+- Mount of Apollo (base of ring): creativity and success
+- Mount of Mercury (base of pinky): communication skills
+- Luna Mount (opposite thumb): imagination and intuition
+- Mars Mounts (between thumb/index and below Mercury): courage and resilience
+
+**HAND CHARACTERISTICS**:
+- Fingers: length relative to palm, straightness, flexibility
+- Thumb: size, angle, flexibility (indicates willpower)
+- Nails: shape and condition
+- Skin texture: smooth vs rough
+- Overall hand shape: earth, air, fire, or water type
+
+**SPECIAL MARKINGS**:
+- Stars, crosses, triangles, squares, grilles
+- Islands, chains, breaks in lines
+- Color variations or unusual features${questionSection}
+
+RESPONSE FORMAT:
+1. Start with a detailed description of what you actually see in the image
+2. Interpret each major line with specific observations
+3. Discuss notable features and their meanings
+4. Provide personalized insights based on the unique palm characteristics
+5. Offer practical guidance aligned with the palm's indications
+
+Write 400-600 words. Be specific, detailed, and reference actual visible features. Maintain a warm, mystical, yet authoritative tone.
 
 Palm Reading:`
   }
