@@ -1,5 +1,11 @@
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
 import { query } from '../config/database.js'
+
+// Helper function to hash tokens
+const hashToken = (token) => {
+  return crypto.createHash('sha256').update(token).digest('hex')
+}
 
 // Authentication middleware
 export const authenticateToken = async (req, res, next) => {
@@ -28,10 +34,11 @@ export const authenticateToken = async (req, res, next) => {
       }
     }
     
-    // Check if session exists and is valid
+    // Check if session exists and is valid (using token hash for security)
+    const tokenHash = hashToken(token)
     const sessionResult = await query(
       'SELECT s.*, u.* FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.token_hash = $1 AND s.expires_at > NOW()',
-      [token]
+      [tokenHash]
     )
 
     if (sessionResult.rows.length === 0) {
@@ -41,7 +48,7 @@ export const authenticateToken = async (req, res, next) => {
     // Update last used timestamp
     await query(
       'UPDATE user_sessions SET last_used_at = NOW() WHERE token_hash = $1',
-      [token]
+      [tokenHash]
     )
 
     // Add user info to request
@@ -88,17 +95,18 @@ export const optionalAuth = async (req, res, next) => {
         }
       }
 
-      // Check if session exists and is valid
+      // Check if session exists and is valid (using token hash for security)
+      const tokenHash = hashToken(token)
       const sessionResult = await query(
         'SELECT s.*, u.* FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.token_hash = $1 AND s.expires_at > NOW()',
-        [token]
+        [tokenHash]
       )
 
       if (sessionResult.rows.length > 0) {
         // Update last used timestamp
         await query(
           'UPDATE user_sessions SET last_used_at = NOW() WHERE token_hash = $1',
-          [token]
+          [tokenHash]
         )
 
         // Add user info to request
@@ -143,12 +151,15 @@ export const createSession = async (userId, token, req) => {
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + 7) // 7 days
 
+  // Hash the token before storing for security
+  const tokenHash = hashToken(token)
+
   await query(
     `INSERT INTO user_sessions (user_id, token_hash, expires_at, ip_address, user_agent)
      VALUES ($1, $2, $3, $4, $5)`,
     [
       userId,
-      token,
+      tokenHash,  // Store hash, not plain token
       expiresAt,
       req.ip || req.connection.remoteAddress,
       req.get('User-Agent') || 'Unknown'
