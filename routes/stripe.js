@@ -17,16 +17,37 @@ function initializeStripe() {
   return stripe
 }
 
+// Plan ID to Stripe Price ID mapping (secure - not exposed to frontend)
+const PLAN_PRICE_MAPPING = {
+  'unlimited-monthly': process.env.STRIPE_PRICE_ID_MONTHLY || 'price_1S5tEGEAZEU94rdcGrFxyIfm',
+  'unlimited-yearly': process.env.STRIPE_PRICE_ID_YEARLY || null, // For future yearly plan
+}
+
 // Create Stripe Checkout Session
 router.post('/create-checkout-session', authenticateToken, async (req, res) => {
   try {
-    const { priceId, userId, successUrl, cancelUrl } = req.body
+    const { priceId: planId, userId, successUrl, cancelUrl } = req.body
 
-    if (!priceId || !userId) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: priceId and userId are required' 
+    if (!planId || !userId) {
+      return res.status(400).json({
+        error: 'Missing required fields: planId and userId are required'
       })
     }
+
+    // Map plan ID to actual Stripe price ID (secure server-side mapping)
+    const stripePriceId = PLAN_PRICE_MAPPING[planId]
+
+    if (!stripePriceId) {
+      return res.status(400).json({
+        error: `Invalid plan ID: ${planId}. Valid plans: ${Object.keys(PLAN_PRICE_MAPPING).join(', ')}`
+      })
+    }
+
+    console.log('🔒 SECURE PRICE MAPPING:', {
+      planId: planId,
+      stripePriceId: stripePriceId,
+      userId: userId
+    })
 
     // Skip mock payments - using real Stripe to debug session creation issue
 
@@ -38,7 +59,9 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
     }
 
     console.log('🔍 CHECKOUT SESSION CREATION DEBUG:')
-    console.log('- Request data:', { priceId, userId, successUrl, cancelUrl })
+    console.log('- Plan ID (from frontend):', planId)
+    console.log('- Stripe Price ID (mapped):', stripePriceId)
+    console.log('- User ID:', userId)
     console.log('- User email:', req.user?.email)
     console.log('- Request origin:', req.headers.origin)
     console.log('- Stripe mode:', stripeInstance.apiVersion)
@@ -48,7 +71,7 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
       payment_method_types: ['card'],
       line_items: [
         {
-          price: priceId,
+          price: stripePriceId, // Use mapped Stripe price ID
           quantity: 1,
         },
       ],
