@@ -185,7 +185,10 @@ class OllamaProvider {
         }
       }
 
-      const response = await this.client.post('/api/chat', requestBody)
+      // Vision models need more time - use 3 minute timeout instead of default 60 seconds
+      const response = await this.client.post('/api/chat', requestBody, {
+        timeout: 180000 // 3 minutes for vision processing
+      })
 
       const endTime = Date.now()
       const duration = endTime - startTime

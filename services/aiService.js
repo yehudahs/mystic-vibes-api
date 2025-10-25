@@ -172,63 +172,28 @@ Guidance:`
 
   buildPalmReadingPrompt(question = null) {
     const questionSection = question
-      ? `\n\nSpecific Question: "${question}"\n\nIMPORTANT: Analyze the palm in the context of their question about "${question}". Connect the palm's features to their specific inquiry while providing a comprehensive reading.`
+      ? `\n\nSpecific Question: "${question}"\n\nIMPORTANT: Connect the palm's features to their question about "${question}" in your reading.`
       : ''
 
-    return `You are a master palmist with decades of experience in chiromancy and palm reading. Carefully examine EVERY detail visible in this palm image and provide an exceptionally thorough, accurate analysis.
+    return `You are an experienced palmist. Analyze this palm image and provide a detailed reading.
 
-CRITICAL INSTRUCTIONS:
-1. Study the image carefully before responding
-2. Describe EXACTLY what you see in the palm - specific line positions, curves, breaks, depth
-3. Be highly detailed and specific about each line's characteristics
-4. Note the precise location where lines start and end
-5. Identify ALL visible lines, not just major ones
+Examine these key elements:
 
-DETAILED PALM ANALYSIS FRAMEWORK:
+**MAJOR LINES:**
+- **Heart Line** (horizontal near fingers): path, depth, curves, breaks
+- **Head Line** (middle horizontal): straight or curved, depth, length
+- **Life Line** (curves around thumb): arc depth, continuity
+- **Fate Line** (vertical toward middle finger): presence, continuity
 
-**MAJOR LINES** (Examine each carefully):
-- **Heart Line** (horizontal line near fingers): Describe its exact path, depth, length, any branches or breaks. Does it curve upward or stay straight? Are there any chains, islands, or crosses on it?
-- **Head Line** (middle horizontal line): Note if it's straight or curved, deep or faint, long or short. Look for breaks, forks at the end, or unusual formations.
-- **Life Line** (curves around thumb): Trace its exact arc. Is it deep and strong or faint? Are there breaks, chains, or sister lines parallel to it?
-- **Fate Line** (vertical from wrist toward middle finger): Does it exist? If yes, where does it start and end? Is it continuous or broken?
+**HAND FEATURES:**
+- Mounts (raised pads): Venus (passion), Jupiter (leadership), Saturn (wisdom), Apollo (creativity), Mercury (communication)
+- Fingers: length and shape
+- Overall hand type and skin texture
 
-**MINOR LINES** (if visible):
-- Sun Line (Apollo Line): vertical toward ring finger
-- Mercury Line (Health Line): from wrist toward pinky
-- Marriage/Relationship Lines: small horizontal lines on edge of palm under pinky
-- Children Lines: small vertical lines above marriage lines
-- Travel Lines: horizontal lines on edge of palm opposite thumb
-- Intuition Line: curved line on lunar mount
+**INTERPRETATION:**
+Describe what you observe in the palm, then interpret the major lines and features. Provide insights about personality, relationships, career, and life path. Connect visible features to practical guidance.${questionSection}
 
-**MOUNTS** (raised pads on palm):
-- Mount of Venus (base of thumb): fullness indicates passion
-- Mount of Jupiter (base of index): leadership qualities
-- Mount of Saturn (base of middle): wisdom and responsibility
-- Mount of Apollo (base of ring): creativity and success
-- Mount of Mercury (base of pinky): communication skills
-- Luna Mount (opposite thumb): imagination and intuition
-- Mars Mounts (between thumb/index and below Mercury): courage and resilience
-
-**HAND CHARACTERISTICS**:
-- Fingers: length relative to palm, straightness, flexibility
-- Thumb: size, angle, flexibility (indicates willpower)
-- Nails: shape and condition
-- Skin texture: smooth vs rough
-- Overall hand shape: earth, air, fire, or water type
-
-**SPECIAL MARKINGS**:
-- Stars, crosses, triangles, squares, grilles
-- Islands, chains, breaks in lines
-- Color variations or unusual features${questionSection}
-
-RESPONSE FORMAT:
-1. Start with a detailed description of what you actually see in the image
-2. Interpret each major line with specific observations
-3. Discuss notable features and their meanings
-4. Provide personalized insights based on the unique palm characteristics
-5. Offer practical guidance aligned with the palm's indications
-
-Write 400-600 words. Be specific, detailed, and reference actual visible features. Maintain a warm, mystical, yet authoritative tone.
+Write 300-400 words. Be specific about what you see, maintain a warm mystical tone, and offer actionable insights.
 
 Palm Reading:`
   }
