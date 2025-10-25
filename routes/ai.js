@@ -231,14 +231,16 @@ router.post('/mystical/generate', authenticateToken, async (req, res) => {
 // Generate Palm Reading from Image
 router.post('/palm/reading', optionalAuth, async (req, res) => {
   try {
-    const { image, question } = req.body
+    const { image, question, method = 'direct-analysis', model = 'llama3.2-vision:11b' } = req.body
     const userId = req.user?.id
 
     console.log('✋ AI Palm Reading Request:', {
       timestamp: new Date().toISOString(),
       userId: userId,
       hasImage: !!image,
-      hasQuestion: !!question
+      hasQuestion: !!question,
+      method: method,
+      model: model
     })
 
     if (!image) {
@@ -253,32 +255,62 @@ router.post('/palm/reading', optionalAuth, async (req, res) => {
       imageBase64 = image.split('base64,')[1]
     }
 
-    const reading = await aiService.generatePalmReading(imageBase64, question)
+    const reading = await aiService.generatePalmReading(imageBase64, question, method, model)
 
     console.log('✋ AI Palm Reading Response:', {
       timestamp: new Date().toISOString(),
-      provider: reading.provider,
-      model: reading.model,
-      responseLength: reading.content?.length || 0,
+      method: reading.method,
+      model: reading.model || reading.visionModel,
+      responseLength: reading.reading?.length || 0,
       hasAnnotatedImage: !!reading.annotated_image,
       featuresDetected: reading.features_detected?.length || 0
     })
 
     res.json({
       success: true,
-      reading: reading.content,
+      reading: reading.reading,
+      method: reading.method,
       annotated_image: reading.annotated_image,
       features_detected: reading.features_detected,
-      metadata: {
-        provider: reading.provider,
-        model: reading.model,
-        usage: reading.usage
-      }
+      palm_features: reading.palmFeatures,
+      metadata: reading.metadata
     })
   } catch (error) {
     console.error('Palm reading error:', error)
     res.status(500).json({
       error: 'Failed to generate palm reading',
+      message: error.message
+    })
+  }
+})
+
+// Get available palm reading methods
+router.get('/palm/methods', async (req, res) => {
+  try {
+    const methods = await aiService.getPalmReadingMethods()
+    res.json({
+      success: true,
+      methods
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to get palm reading methods',
+      message: error.message
+    })
+  }
+})
+
+// Get available AI models for palm reading
+router.get('/palm/models', async (req, res) => {
+  try {
+    const models = await aiService.getPalmReadingModels()
+    res.json({
+      success: true,
+      models
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to get available models',
       message: error.message
     })
   }

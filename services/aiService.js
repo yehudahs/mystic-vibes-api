@@ -1,12 +1,14 @@
 import OllamaProvider from './ai/ollamaProvider.js'
 import OpenAIProvider from './ai/openaiProvider.js'
 import TogetherProvider from './ai/togetherProvider.js'
+import PalmReadingMethods from './ai/palmReadingMethods.js'
 import axios from 'axios'
 
 class AIService {
   constructor() {
     this.provider = null
     this.providerType = null
+    this.palmMethods = null
     // Don't initialize immediately - wait for first request
   }
 
@@ -74,9 +76,14 @@ class AIService {
     return await this.provider.generateResponse(prompt)
   }
 
-  async generatePalmReading(imageBase64, question = null) {
+  async generatePalmReading(imageBase64, question = null, method = 'direct-analysis', model = 'llama3.2-vision:11b') {
     if (!this.provider) {
       this.initializeProvider()
+    }
+
+    // Initialize palm methods if not done
+    if (!this.palmMethods) {
+      this.palmMethods = new PalmReadingMethods(this.provider)
     }
 
     // Check if provider supports image analysis
@@ -84,8 +91,27 @@ class AIService {
       throw new Error(`Provider ${this.providerType} does not support image analysis. Please use Ollama with a vision model like llava.`)
     }
 
-    const prompt = this.buildPalmReadingPrompt(question)
-    const reading = await this.provider.analyzeImage(imageBase64, prompt)
+    // Call the appropriate method
+    let reading
+    switch (method) {
+      case 'direct-analysis':
+        reading = await this.palmMethods.directAnalysis(imageBase64, question, model)
+        break
+      case 'two-stage-analysis':
+        reading = await this.palmMethods.twoStageAnalysis(imageBase64, question, model)
+        break
+      case 'focused-line-analysis':
+        reading = await this.palmMethods.focusedLineAnalysis(imageBase64, question, model)
+        break
+      case 'comparative-analysis':
+        reading = await this.palmMethods.comparativeAnalysis(imageBase64, question, model, model)
+        break
+      case 'structured-analysis':
+        reading = await this.palmMethods.structuredAnalysis(imageBase64, question, model)
+        break
+      default:
+        throw new Error(`Unknown palm reading method: ${method}`)
+    }
 
     // Call annotation service to add colored lines to the palm image
     try {
@@ -94,7 +120,7 @@ class AIService {
 
       const annotationResponse = await axios.post(`${annotationUrl}/annotate`, {
         image: imageBase64,
-        analysis: reading.content
+        analysis: reading.reading
       }, {
         timeout: 30000 // 30 seconds
       })
@@ -115,6 +141,26 @@ class AIService {
     }
 
     return reading
+  }
+
+  async getPalmReadingMethods() {
+    if (!this.provider) {
+      this.initializeProvider()
+    }
+    if (!this.palmMethods) {
+      this.palmMethods = new PalmReadingMethods(this.provider)
+    }
+    return this.palmMethods.getAvailableMethods()
+  }
+
+  async getPalmReadingModels() {
+    if (!this.provider) {
+      this.initializeProvider()
+    }
+    if (!this.palmMethods) {
+      this.palmMethods = new PalmReadingMethods(this.provider)
+    }
+    return await this.palmMethods.getAvailableModels()
   }
 
   buildTarotPrompt(cards, question, spread) {
