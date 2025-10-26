@@ -91,11 +91,12 @@ class AIService {
      * Most accurate palm reading approach
      */
     try {
-      const pipelineUrl = process.env.PALM_ANNOTATION_URL || 'http://localhost:5001'
-      console.log('📡 Calling palm reading pipeline:', pipelineUrl)
+      // Call unified AI service (which forwards to palm pipeline)
+      const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:11435'
+      console.log('📡 Calling AI service palm endpoint:', `${aiServiceUrl}/palm/analyze`)
 
       // Stage 1-3: Call pipeline to analyze palm features
-      const pipelineResponse = await axios.post(`${pipelineUrl}/analyze`, {
+      const pipelineResponse = await axios.post(`${aiServiceUrl}/palm/analyze`, {
         image: imageBase64,
         question: question
       }, {
