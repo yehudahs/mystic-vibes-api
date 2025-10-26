@@ -1,14 +1,12 @@
 import OllamaProvider from './ai/ollamaProvider.js'
 import OpenAIProvider from './ai/openaiProvider.js'
 import TogetherProvider from './ai/togetherProvider.js'
-import PalmReadingMethods from './ai/palmReadingMethods.js'
 import axios from 'axios'
 
 class AIService {
   constructor() {
     this.provider = null
     this.providerType = null
-    this.palmMethods = null
     // Don't initialize immediately - wait for first request
   }
 
@@ -76,92 +74,77 @@ class AIService {
     return await this.provider.generateResponse(prompt)
   }
 
-  async generatePalmReading(imageBase64, question = null, method = 'direct-analysis', model = 'llama3.2-vision:11b') {
+  async generatePalmReading(imageBase64, question = null) {
     if (!this.provider) {
       this.initializeProvider()
     }
 
-    // Initialize palm methods if not done
-    if (!this.palmMethods) {
-      this.palmMethods = new PalmReadingMethods(this.provider)
-    }
+    // Use CV+SAM+AI Pipeline (MediaPipe → SAM → OpenCV → LLM)
+    console.log('🔬 Using CV+SAM+AI Pipeline for palm reading')
+    return await this.generatePalmReadingWithPipeline(imageBase64, question)
+  }
 
-    // Check if provider supports image analysis
-    if (typeof this.provider.analyzeImage !== 'function') {
-      throw new Error(`Provider ${this.providerType} does not support image analysis. Please use Ollama with a vision model like llava.`)
-    }
-
-    // Call the appropriate method
-    let reading
-    switch (method) {
-      case 'direct-analysis':
-        reading = await this.palmMethods.directAnalysis(imageBase64, question, model)
-        break
-      case 'two-stage-analysis':
-        reading = await this.palmMethods.twoStageAnalysis(imageBase64, question, model)
-        break
-      case 'focused-line-analysis':
-        reading = await this.palmMethods.focusedLineAnalysis(imageBase64, question, model)
-        break
-      case 'comparative-analysis':
-        reading = await this.palmMethods.comparativeAnalysis(imageBase64, question, model, model)
-        break
-      case 'structured-analysis':
-        reading = await this.palmMethods.structuredAnalysis(imageBase64, question, model)
-        break
-      default:
-        throw new Error(`Unknown palm reading method: ${method}`)
-    }
-
-    // Call annotation service to add colored lines to the palm image
+  async generatePalmReadingWithPipeline(imageBase64, question = null) {
+    /**
+     * CV+SAM+AI Pipeline Method
+     * Uses: MediaPipe (hand detection) → SAM (segmentation) → OpenCV (line extraction) → Features → LLM
+     * Most accurate palm reading approach
+     */
     try {
-      const annotationUrl = process.env.PALM_ANNOTATION_URL || 'http://localhost:5001'
-      console.log('🎨 Calling palm annotation service:', annotationUrl)
+      const pipelineUrl = process.env.PALM_ANNOTATION_URL || 'http://localhost:5001'
+      console.log('📡 Calling palm reading pipeline:', pipelineUrl)
 
-      const annotationResponse = await axios.post(`${annotationUrl}/annotate`, {
+      // Stage 1-3: Call pipeline to analyze palm features
+      const pipelineResponse = await axios.post(`${pipelineUrl}/analyze`, {
         image: imageBase64,
-        analysis: reading.reading
+        question: question
       }, {
-        timeout: 30000 // 30 seconds
+        timeout: 60000 // 60 seconds for full pipeline
       })
 
-      if (annotationResponse.data.success) {
-        console.log(`✅ Palm annotated successfully! Detected ${annotationResponse.data.features_detected} features`)
-
-        // Add annotated image to the response
-        reading.annotated_image = annotationResponse.data.annotated_image
-        reading.features_detected = annotationResponse.data.features
-      } else {
-        console.warn('⚠️ Palm annotation failed:', annotationResponse.data.error)
-        // Continue without annotation
+      if (!pipelineResponse.data.success) {
+        throw new Error(pipelineResponse.data.error || 'Pipeline analysis failed')
       }
+
+      const pipelineData = pipelineResponse.data
+      console.log(`✅ Pipeline completed: ${pipelineData.pipeline_stages?.hand_detection?.handedness} hand detected`)
+      console.log(`   Lines detected: ${pipelineData.pipeline_stages?.line_extraction?.total_lines}`)
+      console.log(`   Confidence: ${pipelineData.pipeline_stages?.feature_interpretation?.confidence}`)
+
+      // Stage 4: Generate mystical reading using structured features
+      const readingPrompt = pipelineData.reading_prompt
+      console.log('🔮 Generating reading with LLM...')
+
+      const llmResponse = await this.provider.generateResponse(readingPrompt)
+
+      // Return complete result
+      return {
+        method: 'cv-sam-pipeline',
+        reading: llmResponse.content,
+        pipeline_stages: pipelineData.pipeline_stages,
+        features: pipelineData.features,
+        annotated_image: pipelineData.visualizations?.extracted_lines,
+        segmented_hand: pipelineData.visualizations?.segmented_hand,
+        segmentation_mask: pipelineData.visualizations?.segmentation_mask,
+        cropped_hand: pipelineData.visualizations?.cropped_hand,
+        detected_landmarks: pipelineData.visualizations?.detected_landmarks,
+        metadata: {
+          provider: 'cv-sam-pipeline',
+          hand_detection: 'MediaPipe',
+          hand_segmentation: 'SAM (Segment Anything)',
+          line_extraction: 'OpenCV + scikit-image',
+          feature_interpretation: 'Rule-based',
+          text_generation: this.providerType,
+          usage: llmResponse.usage
+        }
+      }
+
     } catch (error) {
-      console.error('❌ Palm annotation service error:', error.message)
-      // Continue without annotation - don't fail the whole request
+      console.error('❌ Palm reading pipeline error:', error.message)
+      throw new Error(`Palm reading pipeline failed: ${error.message}`)
     }
-
-    return reading
   }
 
-  async getPalmReadingMethods() {
-    if (!this.provider) {
-      this.initializeProvider()
-    }
-    if (!this.palmMethods) {
-      this.palmMethods = new PalmReadingMethods(this.provider)
-    }
-    return this.palmMethods.getAvailableMethods()
-  }
-
-  async getPalmReadingModels() {
-    if (!this.provider) {
-      this.initializeProvider()
-    }
-    if (!this.palmMethods) {
-      this.palmMethods = new PalmReadingMethods(this.provider)
-    }
-    return await this.palmMethods.getAvailableModels()
-  }
 
   buildTarotPrompt(cards, question, spread) {
     // Cards come as DrawnCard objects: { card: {...}, position: "...", isReversed: boolean }

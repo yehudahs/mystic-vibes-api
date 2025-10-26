@@ -228,19 +228,17 @@ router.post('/mystical/generate', authenticateToken, async (req, res) => {
   }
 })
 
-// Generate Palm Reading from Image
+// Generate Palm Reading from Image (using CV+SAM+AI Pipeline)
 router.post('/palm/reading', optionalAuth, async (req, res) => {
   try {
-    const { image, question, method = 'direct-analysis', model = 'llama3.2-vision:11b' } = req.body
+    const { image, question } = req.body
     const userId = req.user?.id
 
-    console.log('✋ AI Palm Reading Request:', {
+    console.log('✋ AI Palm Reading Request (CV+SAM+AI Pipeline):', {
       timestamp: new Date().toISOString(),
       userId: userId,
       hasImage: !!image,
-      hasQuestion: !!question,
-      method: method,
-      model: model
+      hasQuestion: !!question
     })
 
     if (!image) {
@@ -255,24 +253,28 @@ router.post('/palm/reading', optionalAuth, async (req, res) => {
       imageBase64 = image.split('base64,')[1]
     }
 
-    const reading = await aiService.generatePalmReading(imageBase64, question, method, model)
+    const reading = await aiService.generatePalmReading(imageBase64, question)
 
     console.log('✋ AI Palm Reading Response:', {
       timestamp: new Date().toISOString(),
       method: reading.method,
-      model: reading.model || reading.visionModel,
       responseLength: reading.reading?.length || 0,
       hasAnnotatedImage: !!reading.annotated_image,
-      featuresDetected: reading.features_detected?.length || 0
+      hasSegmentedHand: !!reading.segmented_hand,
+      pipelineStages: Object.keys(reading.pipeline_stages || {})
     })
 
     res.json({
       success: true,
       reading: reading.reading,
       method: reading.method,
+      pipeline_stages: reading.pipeline_stages,
+      features: reading.features,
       annotated_image: reading.annotated_image,
-      features_detected: reading.features_detected,
-      palm_features: reading.palmFeatures,
+      segmented_hand: reading.segmented_hand,
+      segmentation_mask: reading.segmentation_mask,
+      cropped_hand: reading.cropped_hand,
+      detected_landmarks: reading.detected_landmarks,
       metadata: reading.metadata
     })
   } catch (error) {
@@ -284,37 +286,6 @@ router.post('/palm/reading', optionalAuth, async (req, res) => {
   }
 })
 
-// Get available palm reading methods
-router.get('/palm/methods', async (req, res) => {
-  try {
-    const methods = await aiService.getPalmReadingMethods()
-    res.json({
-      success: true,
-      methods
-    })
-  } catch (error) {
-    res.status(500).json({
-      error: 'Failed to get palm reading methods',
-      message: error.message
-    })
-  }
-})
-
-// Get available AI models for palm reading
-router.get('/palm/models', async (req, res) => {
-  try {
-    const models = await aiService.getPalmReadingModels()
-    res.json({
-      success: true,
-      models
-    })
-  } catch (error) {
-    res.status(500).json({
-      error: 'Failed to get available models',
-      message: error.message
-    })
-  }
-})
 
 // Switch AI Provider (admin only)
 router.post('/provider/switch', authenticateToken, async (req, res) => {
