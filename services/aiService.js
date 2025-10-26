@@ -13,17 +13,17 @@ class AIService {
   initializeProvider() {
     // Re-read environment variables when actually needed
     this.providerType = process.env.AI_PROVIDER || 'ollama'
+    const aiServicesUrl = process.env.AI_SERVICES || 'http://localhost:11435'
 
     switch (this.providerType.toLowerCase()) {
       case 'ollama':
-        const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
-        console.log('🔧 AI Service Debug:', {
-          OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
-          ollamaBaseUrl,
-          AI_PROVIDER: process.env.AI_PROVIDER
+        console.log('🔧 AI Service Configuration:', {
+          AI_SERVICES: aiServicesUrl,
+          AI_PROVIDER: this.providerType,
+          OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'llama3.2:3b'
         })
         this.provider = new OllamaProvider({
-          baseUrl: ollamaBaseUrl,
+          baseUrl: aiServicesUrl,  // Use unified AI services gateway
           model: process.env.OLLAMA_MODEL || 'llama3.2:3b'
         })
         break
@@ -91,12 +91,12 @@ class AIService {
      * Most accurate palm reading approach
      */
     try {
-      // Call unified AI service (which forwards to palm pipeline)
-      const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:11435'
-      console.log('📡 Calling AI service palm endpoint:', `${aiServiceUrl}/palm/analyze`)
+      // Call unified AI services gateway (which forwards to palm pipeline)
+      const aiServicesUrl = process.env.AI_SERVICES || 'http://localhost:11435'
+      console.log('📡 Calling AI services palm endpoint:', `${aiServicesUrl}/palm/analyze`)
 
       // Stage 1-3: Call pipeline to analyze palm features
-      const pipelineResponse = await axios.post(`${aiServiceUrl}/palm/analyze`, {
+      const pipelineResponse = await axios.post(`${aiServicesUrl}/palm/analyze`, {
         image: imageBase64,
         question: question
       }, {
