@@ -252,6 +252,141 @@ Provide detailed, insightful analysis for each section.`
   }
 
   /**
+   * Method 6: Three-Stage Deep Analysis
+   * Stage 1: Detect and isolate the hand
+   * Stage 2: Identify and describe palm lines
+   * Stage 3: Generate detailed reading
+   */
+  async threeStageDeepAnalysis(imageBase64, question = '', visionModel = 'llama3.2-vision:11b', textModel = 'llama3.1:latest') {
+    console.log('📋 Method 6: Three-Stage Deep Analysis')
+    console.log(`   Vision Model: ${visionModel}`)
+    console.log(`   Text Model: ${textModel}`)
+
+    // Stage 1: Hand Detection and Description
+    const handDetectPrompt = `You are analyzing this image to locate and describe a human hand for palm reading.
+
+TASK: Identify if there is a clear view of a human hand palm in this image.
+
+Describe:
+1. Is a hand clearly visible? (yes/no)
+2. Which hand is it? (left or right)
+3. Is the palm facing the camera? (yes/no)
+4. Hand position and orientation
+5. Image quality for palm reading (good/fair/poor)
+6. Any obstructions or issues that would affect reading
+7. Background and lighting conditions
+
+Be objective and specific.`
+
+    console.log('   Stage 1: Detecting hand...')
+    const handDetectResult = await this.ollama.analyzeImage(imageBase64, handDetectPrompt, visionModel)
+    const handDescription = handDetectResult.content
+
+    // Stage 2: Palm Lines Identification
+    const linesDetectPrompt = `You are a palmistry expert analyzing this hand image. Based on this hand description:
+
+${handDescription}
+
+Now, carefully examine the palm and identify these specific lines:
+
+**HEART LINE** (horizontal, near base of fingers):
+- Starting point, ending point
+- Depth, clarity, continuity
+- Curves, breaks, or special markings
+
+**HEAD LINE** (horizontal, middle of palm):
+- Starting point, ending point
+- Straight or curved path
+- Depth and clarity
+
+**LIFE LINE** (curves around thumb base):
+- Arc depth and width
+- Starting point, ending point
+- Continuity and strength
+
+**FATE LINE** (vertical, center of palm):
+- Presence (yes/no - not everyone has one)
+- Starting point, ending point
+- Continuity
+
+**MINOR LINES** (if visible):
+- Marriage lines, money lines, travel lines, etc.
+
+**MOUNTS** (raised areas):
+- Venus (thumb base), Jupiter (index finger), Saturn (middle), Apollo (ring), Mercury (pinky)
+
+Provide detailed, objective observations only. Do not interpret yet.`
+
+    console.log('   Stage 2: Identifying palm lines...')
+    const linesDetectResult = await this.ollama.analyzeImage(imageBase64, linesDetectPrompt, visionModel)
+    const palmLines = linesDetectResult.content
+
+    // Stage 3: Generate Mystical Reading
+    const readingPrompt = `You are a mystical palmist providing a comprehensive reading.
+
+HAND DESCRIPTION:
+${handDescription}
+
+PALM LINES OBSERVED:
+${palmLines}
+
+${question ? `USER'S QUESTION: "${question}"\n` : ''}
+
+Based on these detailed observations, provide a mystical and insightful palm reading that includes:
+
+**EMOTIONAL REALM** (Heart Line):
+- Love life and relationships
+- Emotional nature and expression
+- Capacity for intimacy
+
+**MENTAL REALM** (Head Line):
+- Thinking style and intellect
+- Decision-making approach
+- Mental strengths
+
+**PHYSICAL REALM** (Life Line):
+- Vitality and energy levels
+- Major life events and changes
+- Health indications
+
+**DESTINY REALM** (Fate Line):
+- Career path and purpose
+- Life direction
+- Achievements and challenges
+
+**SYNTHESIS**:
+- Overall life pattern
+- Key insights and guidance
+${question ? `- Direct answer to the question: "${question}"` : ''}
+
+Write in a warm, mystical tone with specific, actionable insights. 300-400 words.`
+
+    console.log('   Stage 3: Generating reading...')
+    const readingResult = await this.ollama.generateResponse(readingPrompt)
+
+    return {
+      method: 'three-stage-deep-analysis',
+      visionModel,
+      textModel,
+      reading: readingResult.content,
+      handDescription,
+      palmLines,
+      metadata: {
+        provider: handDetectResult.provider,
+        usage: {
+          stage1: handDetectResult.usage,
+          stage2: linesDetectResult.usage,
+          stage3: readingResult.usage,
+          totalTokens: (handDetectResult.usage?.total_tokens || 0) +
+                      (linesDetectResult.usage?.total_tokens || 0) +
+                      (readingResult.usage?.total_tokens || 0)
+        },
+        stages: 3
+      }
+    }
+  }
+
+  /**
    * Get available methods
    */
   getAvailableMethods() {
@@ -269,6 +404,13 @@ Provide detailed, insightful analysis for each section.`
         description: 'Detect features first, then generate reading (most accurate)',
         stages: 2,
         speed: 'medium'
+      },
+      {
+        id: 'three-stage-deep-analysis',
+        name: 'Three-Stage Deep Analysis',
+        description: 'Hand detection → Line identification → Reading (most detailed)',
+        stages: 3,
+        speed: 'slow'
       },
       {
         id: 'focused-line-analysis',
@@ -303,7 +445,8 @@ Provide detailed, insightful analysis for each section.`
       const visionModels = models.filter(m =>
         m.name.includes('vision') ||
         m.name.includes('llava') ||
-        m.name.includes('bakllava')
+        m.name.includes('bakllava') ||
+        m.name.includes('minicpm')
       )
       return visionModels.map(m => ({
         name: m.name,
