@@ -23,12 +23,10 @@ class AIService {
       case 'ollama':
         console.log('🔧 AI Service Configuration:', {
           AI_SERVICES: aiServicesUrl,
-          AI_PROVIDER: this.providerType,
-          OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'llama3.2:3b'
+          AI_PROVIDER: this.providerType
         })
         this.provider = new OllamaProvider({
-          baseUrl: aiServicesUrl,  // Use unified AI services gateway
-          model: process.env.OLLAMA_MODEL || 'llama3.2:3b'
+          baseUrl: aiServicesUrl  // Use unified AI services gateway
         })
         break
       case 'openai':

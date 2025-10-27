@@ -4,7 +4,6 @@ import ollamaMonitor from '../ollamaMonitor.js'
 class OllamaProvider {
   constructor(config) {
     this.baseUrl = config.baseUrl
-    this.model = config.model
     this.client = axios.create({
       baseURL: this.baseUrl,
       timeout: 60000, // 60 seconds for AI responses
@@ -21,7 +20,6 @@ class OllamaProvider {
       method: 'POST',
       endpoint: '/api/generate',
       prompt: prompt,
-      model: this.model,
       success: false,
       duration: 0
     }
@@ -30,7 +28,7 @@ class OllamaProvider {
       console.log(`🔗 OllamaProvider making request to: ${this.baseUrl}/api/generate`)
 
       const requestBody = {
-        model: this.model,
+        // Model will be injected by AI service gateway if not provided
         prompt: prompt,
         stream: false,
         options: {
@@ -76,7 +74,7 @@ class OllamaProvider {
         success: true,
         content: responseContent,
         provider: 'ollama',
-        model: this.model,
+        model: response.data.model || 'unknown', // Use model from response
         usage,
         context: response.data.context || null // Return context for next conversation
       }
@@ -103,7 +101,7 @@ class OllamaProvider {
       }
 
       if (error.response?.status === 404) {
-        throw new Error(`Model "${this.model}" not found. Please pull the model first: ollama pull ${this.model}`)
+        throw new Error(`Model not found on AI service. Please check AI service configuration.`)
       }
 
       throw new Error(`Ollama API error: ${error.message}`)
@@ -114,11 +112,6 @@ class OllamaProvider {
     try {
       const response = await this.client.get('/api/tags')
       const models = response.data.models || []
-      const modelExists = models.some(m => m.name.includes(this.model))
-
-      if (!modelExists) {
-        throw new Error(`Model "${this.model}" is not available`)
-      }
 
       return {
         status: 'healthy',
@@ -126,7 +119,7 @@ class OllamaProvider {
       }
     } catch (error) {
       if (error.code === 'ECONNREFUSED') {
-        throw new Error('Cannot connect to Ollama service')
+        throw new Error('Cannot connect to AI service')
       }
       throw error
     }
