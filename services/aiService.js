@@ -13,10 +13,10 @@ class AIService {
   initializeProvider() {
     // Re-read environment variables when actually needed
     this.providerType = process.env.AI_PROVIDER || 'ollama'
-    const aiServicesUrl = process.env.AI_SERVICES || process.env.OLLAMA_BASE_URL
+    const aiServicesUrl = process.env.AI_SERVICES
 
     if (!aiServicesUrl) {
-      throw new Error('AI_SERVICES or OLLAMA_BASE_URL environment variable is required')
+      throw new Error('AI_SERVICES environment variable is required')
     }
 
     switch (this.providerType.toLowerCase()) {
@@ -96,10 +96,10 @@ class AIService {
      */
     try {
       // Call unified AI services gateway (which forwards to palm pipeline)
-      const aiServicesUrl = process.env.AI_SERVICES || process.env.OLLAMA_BASE_URL
+      const aiServicesUrl = process.env.AI_SERVICES
 
       if (!aiServicesUrl) {
-        throw new Error('AI_SERVICES or OLLAMA_BASE_URL environment variable is required')
+        throw new Error('AI_SERVICES environment variable is required')
       }
 
       console.log('📡 Calling AI services palm endpoint:', `${aiServicesUrl}/palm/analyze`)
