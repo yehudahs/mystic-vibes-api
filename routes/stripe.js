@@ -93,7 +93,7 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
     console.log('- Session status:', session.payment_status)
     console.log('- Session expires at:', new Date(session.expires_at * 1000).toISOString())
     res.json({ 
-      id: session.id, 
+      sessionId: session.id, 
       url: session.url 
     })
 
