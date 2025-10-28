@@ -219,6 +219,17 @@ router.get('/subscription', asyncHandler(async (req, res) => {
 
   const subscription = result.rows[0]
 
+  // Ensure subscription_state is never null (should have DEFAULT in database)
+  // This is defensive coding in case migration hasn't run or manual DB changes
+  const subscriptionState = subscription.subscription_state || 'unsubscribed'
+  
+  if (!subscription.subscription_state) {
+    console.warn('⚠️ User has NULL subscription_state, using fallback:', {
+      userId: subscription.id,
+      email: subscription.email
+    })
+  }
+
   // Return subscription data even if no active Stripe subscription
   // This allows the frontend to handle all subscription states properly
   res.json({
@@ -226,7 +237,7 @@ router.get('/subscription', asyncHandler(async (req, res) => {
     stripe_subscription_id: subscription.stripe_subscription_id,
     stripe_price_id: subscription.stripe_price_id,
     stripe_subscription_status: subscription.stripe_subscription_status, // Stripe status: 'active', 'canceled', 'past_due', etc.
-    subscription_state: subscription.subscription_state || 'unsubscribed', // Internal state: 'subscribed', 'unsubscribed', 'unknown'
+    subscription_state: subscriptionState, // Internal state: 'subscribed', 'unsubscribed', 'unknown'
     subscription_current_period_start: subscription.subscription_current_period_start,
     subscription_current_period_end: subscription.subscription_current_period_end,
     subscription_cancel_at_period_end: subscription.subscription_cancel_at_period_end,
