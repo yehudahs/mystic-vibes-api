@@ -1110,4 +1110,37 @@ router.post('/admin/reconcile-subscriptions', authenticateToken, async (req, res
   }
 })
 
+// Get available subscription plans (PUBLIC endpoint - no auth required)
+router.get('/plans', async (req, res) => {
+  try {
+    const plans = [
+      {
+        id: 'unlimited-monthly',
+        name: 'Cosmic Unlimited',
+        description: 'Unlimited readings, priority AI insights, exclusive spreads',
+        price: 997, // $9.97/month (in cents)
+        currency: 'usd',
+        interval: 'month',
+        stripePriceId: PLAN_PRICE_MAPPING['unlimited-monthly'], // Real Stripe price ID
+        popular: true,
+        features: [
+          '🔮 Unlimited Tarot readings',
+          '⭐ Unlimited Horoscope readings',
+          '🤖 Priority AI interpretations',
+          '📚 Exclusive card spreads',
+          '💾 Reading history backup',
+          '🎨 Premium themes',
+          '💬 Priority support'
+        ]
+      }
+      // Add more plans here when you have them (e.g., yearly plan)
+    ]
+
+    res.json({ plans })
+  } catch (error) {
+    console.error('❌ Failed to get plans:', error)
+    res.status(500).json({ error: 'Failed to get subscription plans' })
+  }
+})
+
 export default router
