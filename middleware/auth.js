@@ -45,9 +45,9 @@ export const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid or expired session' })
     }
 
-    // Update last used timestamp
+    // Update last used timestamp AND extend session expiration (sliding window)
     await query(
-      'UPDATE user_sessions SET last_used_at = NOW() WHERE token_hash = $1',
+      'UPDATE user_sessions SET last_used_at = NOW(), expires_at = NOW() + INTERVAL \'7 days\' WHERE token_hash = $1',
       [tokenHash]
     )
 

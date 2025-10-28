@@ -1,6 +1,7 @@
 import express from 'express'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
+import jwt from 'jsonwebtoken'
 import Joi from 'joi'
 import { query } from '../config/database.js'
 import { generateToken, createSession } from '../middleware/auth.js'
@@ -253,6 +254,95 @@ router.get('/me', asyncHandler(async (req, res) => {
       createdAt: user.created_at
     }
   })
+}))
+
+// POST /api/auth/refresh-token - Refresh an expired or expiring token
+router.post('/refresh-token', asyncHandler(async (req, res) => {
+  const authHeader = req.headers['authorization']
+  const oldToken = authHeader && authHeader.split(' ')[1]
+
+  if (!oldToken) {
+    return res.status(401).json({ error: 'No token provided' })
+  }
+
+  try {
+    // Try to decode the token (even if expired)
+    // Don't verify signature yet - just extract the payload
+    const decoded = jwt.decode(oldToken)
+    
+    if (!decoded || typeof decoded === 'string' || !decoded.userId) {
+      return res.status(401).json({ error: 'Invalid token format' })
+    }
+
+    // Verify the user still exists and is active
+    const userResult = await query(
+      'SELECT * FROM users WHERE id = $1',
+      [decoded.userId]
+    )
+
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: 'User not found' })
+    }
+
+    const user = userResult.rows[0]
+
+    // Check if the old session exists (even if expired)
+    // This prevents refresh attacks with stolen tokens that were never valid
+    const oldTokenHash = hashToken(oldToken)
+    const oldSessionResult = await query(
+      'SELECT * FROM user_sessions WHERE token_hash = $1',
+      [oldTokenHash]
+    )
+
+    if (oldSessionResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Session not found - please login again' })
+    }
+
+    const oldSession = oldSessionResult.rows[0]
+
+    // Check if session expired within the last 7 days (grace period)
+    // This prevents indefinite refresh after long inactivity
+    const gracePeriod = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+    const sessionExpiredAt = new Date(oldSession.expires_at)
+    const now = new Date()
+    const timeSinceExpiry = now - sessionExpiredAt
+
+    if (timeSinceExpiry > gracePeriod) {
+      // Session expired too long ago - force re-login
+      await query('DELETE FROM user_sessions WHERE token_hash = $1', [oldTokenHash])
+      return res.status(401).json({ 
+        error: 'Session expired too long ago - please login again',
+        requiresLogin: true 
+      })
+    }
+
+    // Generate new token and session
+    const newToken = generateToken(user)
+    await createSession(user.id, newToken, req)
+
+    // Delete the old session
+    await query('DELETE FROM user_sessions WHERE token_hash = $1', [oldTokenHash])
+
+    console.log(`🔄 Token refreshed for user ${user.email}`)
+
+    res.json({
+      message: 'Token refreshed successfully',
+      token: newToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar_url,
+        provider: user.provider
+      }
+    })
+  } catch (error) {
+    console.error('Token refresh error:', error)
+    return res.status(401).json({ 
+      error: 'Failed to refresh token',
+      requiresLogin: true 
+    })
+  }
 }))
 
 export default router
