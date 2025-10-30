@@ -26,24 +26,42 @@ const PLAN_PRICE_MAPPING = {
 // Create Stripe Checkout Session
 router.post('/create-checkout-session', authenticateToken, async (req, res) => {
   try {
-    const { priceId: planId, userId, successUrl, cancelUrl } = req.body
+    const { priceId: planIdOrStripeId, userId, successUrl, cancelUrl } = req.body
 
-    if (!planId || !userId) {
+    if (!planIdOrStripeId || !userId) {
       return res.status(400).json({
         error: 'Missing required fields: planId and userId are required'
       })
     }
 
-    // Map plan ID to actual Stripe price ID (secure server-side mapping)
-    const stripePriceId = PLAN_PRICE_MAPPING[planId]
-
-    if (!stripePriceId) {
-      return res.status(400).json({
-        error: `Invalid plan ID: ${planId}. Valid plans: ${Object.keys(PLAN_PRICE_MAPPING).join(', ')}`
-      })
+    // Support both plan IDs (unlimited-monthly) and Stripe price IDs (price_xxx)
+    let stripePriceId
+    let planId
+    
+    if (planIdOrStripeId.startsWith('price_')) {
+      // It's a Stripe price ID - reverse map to find plan ID
+      stripePriceId = planIdOrStripeId
+      planId = Object.keys(PLAN_PRICE_MAPPING).find(key => PLAN_PRICE_MAPPING[key] === planIdOrStripeId)
+      
+      if (!planId) {
+        return res.status(400).json({
+          error: `Invalid Stripe price ID: ${planIdOrStripeId}. This price is not configured.`
+        })
+      }
+    } else {
+      // It's a plan ID - map to Stripe price ID
+      planId = planIdOrStripeId
+      stripePriceId = PLAN_PRICE_MAPPING[planId]
+      
+      if (!stripePriceId) {
+        return res.status(400).json({
+          error: `Invalid plan ID: ${planId}. Valid plans: ${Object.keys(PLAN_PRICE_MAPPING).join(', ')}`
+        })
+      }
     }
 
     console.log('🔒 SECURE PRICE MAPPING:', {
+      received: planIdOrStripeId,
       planId: planId,
       stripePriceId: stripePriceId,
       userId: userId
