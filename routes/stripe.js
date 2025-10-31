@@ -1132,6 +1132,25 @@ router.post('/admin/reconcile-subscriptions', authenticateToken, async (req, res
 router.get('/plans', async (req, res) => {
   try {
     const plans = [
+      // Free Plan - Always available
+      {
+        id: 'free',
+        name: 'Cosmic Explorer',
+        description: 'Perfect for discovering your spiritual path',
+        price: 0, // Free
+        currency: 'usd',
+        interval: 'month',
+        stripePriceId: null, // No Stripe price ID for free plan
+        popular: false,
+        features: [
+          '🔮 1 Tarot reading per day',
+          '⭐ 1 Horoscope reading per day',
+          '🔢 1 Numerology reading per day',
+          '🤖 AI interpretations',
+          '📱 Mobile-friendly experience'
+        ]
+      },
+      // Paid Plans
       {
         id: 'unlimited-monthly',
         name: 'Cosmic Unlimited',
@@ -1144,6 +1163,7 @@ router.get('/plans', async (req, res) => {
         features: [
           '🔮 Unlimited Tarot readings',
           '⭐ Unlimited Horoscope readings',
+          '🔢 Unlimited Numerology readings',
           '🤖 Priority AI interpretations',
           '📚 Exclusive card spreads',
           '💾 Reading history backup',
