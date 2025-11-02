@@ -23,6 +23,7 @@ import horoscopeRoutes from './routes/horoscopes.js'
 import stripeRoutes from './routes/stripe.js'
 import testingRoutes from './routes/testing.js'
 import aiRoutes from './routes/ai.js'
+import aiStatusRoutes from './routes/ai-status.js'
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js'
@@ -141,6 +142,7 @@ app.use('/api/readings', authenticateToken, readingRoutes)
 app.use('/api/spreads', spreadRoutes)
 app.use('/api/horoscopes', horoscopeRoutes)
 app.use('/api/stripe', stripeRoutes)
+app.use('/api/ai-status', aiStatusRoutes)
 
 // Direct webhook route for Stripe Dashboard compatibility - redirect to stripe webhook
 app.post('/api/webhook', (req, res, next) => {
