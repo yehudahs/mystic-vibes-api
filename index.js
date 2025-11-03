@@ -18,6 +18,7 @@ dotenv.config() // Load root .env as fallback
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
 import readingRoutes from './routes/readings.js'
+import unifiedReadingsRoutes from './routes/unified-readings.js'
 import spreadRoutes from './routes/spreads.js'
 import horoscopeRoutes from './routes/horoscopes.js'
 import stripeRoutes from './routes/stripe.js'
@@ -138,7 +139,8 @@ app.get('/api/health', healthResponse)
 // API routes
 app.use('/api/auth', authRoutes)
 app.use('/api/users', authenticateToken, userRoutes)
-app.use('/api/readings', authenticateToken, readingRoutes)
+app.use('/api/readings', authenticateToken, unifiedReadingsRoutes) // NEW: Unified readings endpoint
+app.use('/api/readings', authenticateToken, readingRoutes) // Keep old tarot-specific endpoint for backward compatibility
 app.use('/api/spreads', spreadRoutes)
 app.use('/api/horoscopes', horoscopeRoutes)
 app.use('/api/stripe', stripeRoutes)
