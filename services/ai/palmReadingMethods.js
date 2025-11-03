@@ -17,16 +17,16 @@ class PalmReadingMethods {
     console.log('📋 Method 1: Direct Analysis')
     console.log(`   Model: ${model}`)
 
-    const prompt = `You are an expert palmist. Analyze this palm image and provide a detailed reading.
+    const prompt = `You are an expert palmist. Provide a DIRECT and PRACTICAL palm reading.
 
-${question ? `Question: ${question}\n` : ''}
-Please analyze the palm lines and provide insights about:
-1. Heart Line (emotions, relationships)
-2. Head Line (intellect, decisions)
-3. Life Line (vitality, major life changes)
-4. Fate Line (career, life path)
+${question ? `Question: "${question}"\n\nCRITICAL: Answer their question DIRECTLY in the first 2-3 sentences.\n` : ''}
+Analyze these palm lines:
+1. Heart Line (emotions/relationships) - length, depth, curves
+2. Head Line (intellect/decisions) - straight or curved, depth
+3. Life Line (vitality/changes) - arc depth, continuity
+4. Fate Line (career/destiny) - presence, continuity
 
-Provide a comprehensive, mystical reading based on what you observe in the palm.`
+Style: Direct, specific, warm. Maximum 200-250 words. Focus on actionable insights.`
 
     const result = await this.ollama.analyzeImage(imageBase64, prompt, model)
 
@@ -67,20 +67,20 @@ Provide a detailed, objective description of the palm features you observe.`
     const palmFeatures = detectResult.content
 
     // Stage 2: Generate reading based on features
-    const readingPrompt = `You are an expert palmist. Based on the following palm features, provide a mystical and insightful reading:
+    const readingPrompt = `You are an expert palmist. Based on these palm features, provide a DIRECT and PRACTICAL reading:
 
 PALM FEATURES:
 ${palmFeatures}
 
-${question ? `\nQUESTION: ${question}\n` : ''}
+${question ? `\nQuestion: "${question}"\n\nCRITICAL: Answer their question DIRECTLY in the first 2-3 sentences.\n` : ''}
 
-Provide a comprehensive palmistry reading that interprets these features, including:
+Interpret these features with SPECIFIC insights:
 - Emotional life and relationships (Heart Line)
 - Mental abilities and decision-making (Head Line)
 - Life energy and major changes (Life Line)
 - Career path and destiny (Fate Line)
 
-Give specific insights based on the described features.`
+Style: Direct, specific, warm. Maximum 200-250 words. End with ONE concrete piece of guidance.`
 
     console.log('   Stage 2: Generating reading from features...')
     const readingResult = await this.ollama.generateResponse(readingPrompt)
@@ -111,27 +111,18 @@ Give specific insights based on the described features.`
     console.log('📋 Method 3: Focused Line Analysis')
     console.log(`   Model: ${model}`)
 
-    const prompt = `You are an expert palmist analyzing this palm image. Focus on each major line separately for detailed analysis:
+    const prompt = `You are an expert palmist. Analyze this palm image with FOCUSED attention on each major line:
 
-**HEART LINE** (horizontal line near fingers):
-- Location, length, depth, curves
-- Interpretation: emotional nature, relationships, love life
+${question ? `Question: "${question}"\n\nCRITICAL: Answer their question DIRECTLY first, then provide line analysis.\n` : ''}
 
-**HEAD LINE** (horizontal line in middle):
-- Location, length, depth, curves
-- Interpretation: intellect, learning style, decision-making
+**HEART LINE** (near fingers): Location, depth, curves → Emotional nature, relationships
+**HEAD LINE** (middle): Length, depth, curves → Intellect, decision-making  
+**LIFE LINE** (around thumb): Arc depth, continuity → Vitality, major life events
+**FATE LINE** (vertical): Visibility, path → Career direction, destiny
 
-**LIFE LINE** (curved line around thumb):
-- Location, length, depth, curves
-- Interpretation: vitality, major life events, energy levels
+Provide SPECIFIC interpretations for each line, then ONE key insight or action.
 
-**FATE LINE** (vertical line up palm):
-- Location, length, depth, visibility
-- Interpretation: career path, life direction, destiny
-
-${question ? `\nUSER QUESTION: ${question}\n` : ''}
-
-Provide a detailed reading organized by each line, then synthesize an overall interpretation.`
+Style: Direct, organized, practical. Maximum 250 words.`
 
     const result = await this.ollama.analyzeImage(imageBase64, prompt, model)
 
@@ -164,20 +155,20 @@ Provide a detailed reading organized by each line, then synthesize an overall in
     const quickResult = await this.ollama.analyzeImage(imageBase64, quickPrompt, fastModel)
 
     // Detailed analysis
-    const detailedPrompt = `You are an expert palmist. Here's what was initially observed:
+    const detailedPrompt = `You are an expert palmist. Initial observations:
 
 ${quickResult.content}
 
-${question ? `Question: ${question}\n` : ''}
+${question ? `Question: "${question}"\n\nCRITICAL: Answer their question DIRECTLY in the first 2-3 sentences.\n` : ''}
 
-Now provide a comprehensive, mystical palm reading that includes:
-1. Detailed interpretation of the Heart Line (emotions, relationships)
-2. Detailed interpretation of the Head Line (intellect, mental patterns)
-3. Detailed interpretation of the Life Line (vitality, life path)
-4. Detailed interpretation of the Fate Line (career, destiny)
-5. Overall synthesis and guidance
+Provide a DIRECT, PRACTICAL palm reading:
+1. Heart Line → Emotions, relationships (SPECIFIC insights)
+2. Head Line → Intellect, mental patterns (SPECIFIC insights)
+3. Life Line → Vitality, life path (SPECIFIC insights)
+4. Fate Line → Career, destiny (SPECIFIC insights)
+5. ONE key insight or action
 
-Make it insightful and meaningful.`
+Style: Direct, warm, actionable. Maximum 200-250 words.`
 
     console.log('   Stage 2: Detailed analysis...')
     const detailedResult = await this.ollama.analyzeImage(imageBase64, detailedPrompt, detailedModel)
@@ -208,33 +199,28 @@ Make it insightful and meaningful.`
     console.log('📋 Method 5: Structured Analysis')
     console.log(`   Model: ${model}`)
 
-    const prompt = `As an expert palmist, analyze this palm image using the following structured format:
+    const prompt = `As an expert palmist, analyze this palm using a DIRECT, STRUCTURED format:
 
-## PALM READING ANALYSIS
+${question ? `Question: "${question}"\n\n**ANSWER:** [Give DIRECT answer to their question first]\n\n` : ''}
 
-### 1. HEART LINE (Emotional Life)
-**Observation:** [Describe what you see]
-**Interpretation:** [What this means for emotions and relationships]
+## PALM ANALYSIS
 
-### 2. HEAD LINE (Mental Life)
-**Observation:** [Describe what you see]
-**Interpretation:** [What this means for intellect and decisions]
+**HEART LINE** (Emotions/Relationships):
+[Observation] → [SPECIFIC interpretation]
 
-### 3. LIFE LINE (Physical Life)
-**Observation:** [Describe what you see]
-**Interpretation:** [What this means for vitality and life path]
+**HEAD LINE** (Intellect/Decisions):
+[Observation] → [SPECIFIC interpretation]
 
-### 4. FATE LINE (Destiny)
-**Observation:** [Describe what you see]
-**Interpretation:** [What this means for career and purpose]
+**LIFE LINE** (Vitality/Path):
+[Observation] → [SPECIFIC interpretation]
 
-### 5. OVERALL SYNTHESIS
-**Key Insights:** [Main takeaways from the reading]
-**Guidance:** [Advice based on the palm analysis]
+**FATE LINE** (Career/Destiny):
+[Observation] → [SPECIFIC interpretation]
 
-${question ? `\n### 6. ANSWER TO YOUR QUESTION\n"${question}"\n**Response:** [Specific answer based on palm features]\n` : ''}
+**KEY INSIGHT:** [One main takeaway]
+**ACTION:** [One concrete step they can take]
 
-Provide detailed, insightful analysis for each section.`
+Style: Direct, organized, practical. Maximum 250 words.`
 
     const result = await this.ollama.analyzeImage(imageBase64, prompt, model)
 
@@ -330,36 +316,19 @@ ${handDescription}
 PALM LINES OBSERVED:
 ${palmLines}
 
-${question ? `USER'S QUESTION: "${question}"\n` : ''}
+${question ? `Question: "${question}"\n\nCRITICAL: Answer their question DIRECTLY in the first 2-3 sentences.\n\n` : ''}
 
-Based on these detailed observations, provide a mystical and insightful palm reading that includes:
+Provide SPECIFIC insights based on observations:
 
-**EMOTIONAL REALM** (Heart Line):
-- Love life and relationships
-- Emotional nature and expression
-- Capacity for intimacy
+**EMOTIONAL REALM** (Heart Line): Love life, emotional nature (SPECIFIC)
+**MENTAL REALM** (Head Line): Thinking style, decision-making (SPECIFIC)
+**PHYSICAL REALM** (Life Line): Vitality, major life events (SPECIFIC)
+**DESTINY REALM** (Fate Line): Career path, purpose (SPECIFIC)
 
-**MENTAL REALM** (Head Line):
-- Thinking style and intellect
-- Decision-making approach
-- Mental strengths
+**KEY INSIGHT:** [One main takeaway]
+**ACTION:** [One concrete step]
 
-**PHYSICAL REALM** (Life Line):
-- Vitality and energy levels
-- Major life events and changes
-- Health indications
-
-**DESTINY REALM** (Fate Line):
-- Career path and purpose
-- Life direction
-- Achievements and challenges
-
-**SYNTHESIS**:
-- Overall life pattern
-- Key insights and guidance
-${question ? `- Direct answer to the question: "${question}"` : ''}
-
-Write in a warm, mystical tone with specific, actionable insights. 300-400 words.`
+Style: Direct, warm, actionable. Maximum 200-250 words.`
 
     console.log('   Stage 3: Generating reading...')
     const readingResult = await this.ollama.generateResponse(readingPrompt)

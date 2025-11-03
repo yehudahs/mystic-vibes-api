@@ -164,15 +164,20 @@ class AIService {
       return `${cardName}${reversed} in ${position} position`
     }).join(', ')
 
-    return `You are a wise and intuitive tarot reader. Provide a mystical and insightful reading.
+    return `You are a wise and intuitive tarot reader. Provide a DIRECT, CONCISE, and PRACTICAL reading.
 
 Question: "${question}"
 Spread: ${spread}
 Cards drawn: ${cardDescriptions}
 
-IMPORTANT: Begin your reading by directly addressing the querent's question. Reference their specific question throughout your interpretation. Connect each card's meaning to their inquiry about "${question}".
+CRITICAL INSTRUCTIONS:
+1. Answer their question DIRECTLY in the first 1-2 sentences
+2. Give a CLEAR, SPECIFIC answer (not vague or philosophical)
+3. Connect each card BRIEFLY to their question
+4. End with ONE concrete action they can take
+5. Be mystical but PRACTICAL - they want real guidance, not just poetry
 
-Provide a thoughtful interpretation that clearly answers their question using the wisdom of the cards. Be mystical but practical, offering specific guidance they can apply to their situation. Keep the response between 200-400 words.
+Style: Direct, warm, actionable. Maximum 150-200 words.
 
 Reading:`
   }
@@ -180,8 +185,8 @@ Reading:`
   buildHoroscopePrompt(sign, type, question = null) {
     const today = new Date().toLocaleDateString()
     const questionSection = question
-      ? `\nSpecific Question: "${question}"\n\nIMPORTANT: Address their question about "${question}" in the context of their ${type} horoscope. Focus your guidance on their specific inquiry while still providing general insights.`
-      : '\nProvide insights about love, career, health, and general guidance.'
+      ? `\nSpecific Question: "${question}"\n\nCRITICAL: Answer their question DIRECTLY in the first sentence. Give a CLEAR, SPECIFIC answer about "${question}" using astrological insights.`
+      : '\nProvide CONCISE insights about love, career, health, and general guidance.'
 
     return `You are a mystical astrologer. Create a ${type} horoscope for ${sign}.
 
@@ -189,48 +194,45 @@ Date: ${today}
 Sign: ${sign}
 Type: ${type}${questionSection}
 
-Be optimistic yet realistic. Include specific advice they can act on. Keep it between 150-250 words.
+Style: Direct, optimistic, actionable. Maximum 120-150 words. Start with the most important message.
 
 Horoscope:`
   }
 
   buildMysticalPrompt(type, context) {
     const questionSection = context.question
-      ? `\nSpecific Question: "${context.question}"\n\nIMPORTANT: Address their question about "${context.question}" in the context of your ${type} reading. Focus on how the insights relate to their specific inquiry.`
+      ? `\nSpecific Question: "${context.question}"\n\nCRITICAL: Answer their question DIRECTLY in the first 1-2 sentences. Give a CLEAR, SPECIFIC answer about "${context.question}" using ${type} insights. Be direct, not vague.`
       : ''
 
     return `You are a mystical guide providing ${type} insights.
 Context: ${JSON.stringify(context)}${questionSection}
 
-Provide wise, mystical guidance that feels authentic and helpful. Keep response between 100-300 words.
+Style: Direct, wise, practical. Maximum 100-150 words. Focus on actionable guidance.
 
 Guidance:`
   }
 
   buildPalmReadingPrompt(question = null) {
     const questionSection = question
-      ? `\n\nSpecific Question: "${question}"\n\nIMPORTANT: Connect the palm's features to their question about "${question}" in your reading.`
+      ? `\n\nSpecific Question: "${question}"\n\nCRITICAL: Answer their question DIRECTLY in the first 2-3 sentences. Give a CLEAR, SPECIFIC answer about "${question}" based on what you see in the palm.`
       : ''
 
-    return `You are an experienced palmist. Analyze this palm image and provide a detailed reading.
+    return `You are an experienced palmist. Provide a DIRECT and PRACTICAL palm reading.
 
-Examine these key elements:
+Analyze these key elements:
+- **Heart Line** (emotions/relationships): path, depth, curves
+- **Head Line** (thinking/decisions): straight or curved, depth
+- **Life Line** (vitality/direction): arc depth, continuity
+- **Fate Line** (career/purpose): presence, continuity
+- **Mounts & Fingers**: Venus (passion), Jupiter (leadership), Mercury (communication)
 
-**MAJOR LINES:**
-- **Heart Line** (horizontal near fingers): path, depth, curves, breaks
-- **Head Line** (middle horizontal): straight or curved, depth, length
-- **Life Line** (curves around thumb): arc depth, continuity
-- **Fate Line** (vertical toward middle finger): presence, continuity
+CRITICAL INSTRUCTIONS:
+1. Start with 2-3 KEY observations about what you see
+2. Connect these observations DIRECTLY to their life situation
+3. Give SPECIFIC insights about personality, relationships, career
+4. End with ONE concrete piece of guidance${questionSection}
 
-**HAND FEATURES:**
-- Mounts (raised pads): Venus (passion), Jupiter (leadership), Saturn (wisdom), Apollo (creativity), Mercury (communication)
-- Fingers: length and shape
-- Overall hand type and skin texture
-
-**INTERPRETATION:**
-Describe what you observe in the palm, then interpret the major lines and features. Provide insights about personality, relationships, career, and life path. Connect visible features to practical guidance.${questionSection}
-
-Write 300-400 words. Be specific about what you see, maintain a warm mystical tone, and offer actionable insights.
+Style: Direct, specific, warm. Maximum 200-250 words. Focus on actionable insights, not just descriptions.
 
 Palm Reading:`
   }
