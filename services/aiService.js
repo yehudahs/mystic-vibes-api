@@ -23,7 +23,7 @@ class AIService {
   }
 
   async generateMysticalContent(type, context = {}) {
-    const data = await this.call('/mystical', { type, context })
+    const data = await this.call('/greeting', { type, context })
     return { content: data.reading, provider: 'python-ai-service', model: 'ollama' }
   }
 
