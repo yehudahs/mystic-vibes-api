@@ -1143,11 +1143,10 @@ router.get('/plans', async (req, res) => {
         stripePriceId: null, // No Stripe price ID for free plan
         popular: false,
         features: [
-          '🔮 1 Tarot reading per day',
-          '⭐ 1 Horoscope reading per day',
-          '🔢 1 Numerology reading per day',
-          '🤖 AI interpretations',
-          '📱 Mobile-friendly experience'
+          '1 reading per day (any type)',
+          'AI interpretations included',
+          'Tarot, Horoscope, Numerology & Palm Reading',
+          'Mobile-friendly experience'
         ]
       },
       // Paid Plans
@@ -1161,14 +1160,12 @@ router.get('/plans', async (req, res) => {
         stripePriceId: PLAN_PRICE_MAPPING['unlimited-monthly'], // Real Stripe price ID
         popular: true,
         features: [
-          '🔮 Unlimited Tarot readings',
-          '⭐ Unlimited Horoscope readings',
-          '🔢 Unlimited Numerology readings',
-          '🤖 Priority AI interpretations',
-          '📚 Exclusive card spreads',
-          '💾 Reading history backup',
-          '🎨 Premium themes',
-          '💬 Priority support'
+          'Unlimited readings of any type',
+          'Priority AI with deeper insights',
+          'Exclusive premium card spreads',
+          'Full reading history & backup',
+          'Premium themes & customization',
+          'Priority support'
         ]
       }
       // Add more plans here when you have them (e.g., yearly plan)
