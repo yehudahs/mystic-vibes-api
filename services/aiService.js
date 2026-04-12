@@ -43,11 +43,7 @@ class AIService {
       reading: d.reading,
       pipeline_stages: d.pipeline_stages,
       features: d.features,
-      annotated_image: d.visualizations?.extracted_lines,
-      segmented_hand: d.visualizations?.segmented_hand,
-      segmentation_mask: d.visualizations?.segmentation_mask,
-      cropped_hand: d.visualizations?.cropped_hand,
-      detected_landmarks: d.visualizations?.detected_landmarks,
+      annotated_image: d.image,
       metadata: { provider: 'cv-sam-pipeline', text_generation: 'ollama' }
     }
   }
