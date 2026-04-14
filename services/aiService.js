@@ -31,7 +31,7 @@ class AIService {
     const response = await axios.post(`${this.getUrl()}/palm/analyze`, {
       image: imageBase64,
       question
-    }, { timeout: 60000 })
+    }, { timeout: 300000 })
 
     if (!response.data.success) {
       throw new Error(response.data.error || 'Pipeline analysis failed')
@@ -41,6 +41,8 @@ class AIService {
     return {
       method: 'cv-sam-pipeline',
       reading: d.reading,
+      readings: d.readings,
+      images: d.images,
       pipeline_stages: d.pipeline_stages,
       features: d.features,
       annotated_image: d.image,

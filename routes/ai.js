@@ -267,6 +267,8 @@ router.post('/palm/reading', optionalAuth, async (req, res) => {
     res.json({
       success: true,
       reading: reading.reading,
+      readings: reading.readings,
+      images: reading.images,
       method: reading.method,
       pipeline_stages: reading.pipeline_stages,
       features: reading.features,
