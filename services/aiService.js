@@ -27,6 +27,19 @@ class AIService {
     return { content: data.reading, provider: 'python-ai-service', model: 'ollama' }
   }
 
+  async generateNumerologyReading(name, birthDate, question = null) {
+    const data = await this.call('/numerology', { name, birth_date: birthDate, question })
+    return {
+      content: data.reading,
+      numbers: data.numbers,
+      calculation: data.calculation,
+      name_breakdown: data.name_breakdown,
+      meanings: data.meanings,
+      provider: 'python-ai-service',
+      model: 'ollama'
+    }
+  }
+
   async generatePalmReading(imageBase64, question = null) {
     const response = await axios.post(`${this.getUrl()}/palm/analyze`, {
       image: imageBase64,

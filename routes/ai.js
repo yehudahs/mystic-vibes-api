@@ -391,48 +391,33 @@ router.post('/personalization/generate', optionalAuth, async (req, res) => {
 // Generate Numerology Reading
 router.post('/numerology/generate', optionalAuth, async (req, res) => {
   try {
-    const { prompt, model = 'llama3.2:3b' } = req.body
-    const userId = req.user?.id
+    const { name, birth_date, question } = req.body
+
+    if (!birth_date) {
+      return res.status(400).json({ error: 'birth_date is required' })
+    }
 
     console.log('🔢 AI Numerology Request:', {
       timestamp: new Date().toISOString(),
-      userId: userId,
-      promptLength: prompt?.length || 0
+      userId: req.user?.id,
+      hasName: !!name,
+      birth_date,
     })
 
-    if (!prompt || prompt.trim().length === 0) {
-      return res.status(400).json({
-        error: 'Prompt is required'
-      })
-    }
-
-    // Use the mystical content generator with numerology context
-    const content = await aiService.generateMysticalContent('numerology', {
-      prompt: prompt,
-      model: model
-    })
-
-    console.log('🔢 AI Numerology Response:', {
-      timestamp: new Date().toISOString(),
-      provider: content.provider,
-      responseLength: content.content?.length || 0
-    })
+    const result = await aiService.generateNumerologyReading(name || '', birth_date, question || null)
 
     res.json({
       success: true,
-      response: content.content,
-      metadata: {
-        provider: content.provider,
-        model: content.model,
-        usage: content.usage
-      }
+      reading: result.content,
+      numbers: result.numbers,
+      calculation: result.calculation,
+      name_breakdown: result.name_breakdown,
+      meanings: result.meanings,
+      metadata: { provider: result.provider, model: result.model }
     })
   } catch (error) {
     console.error('Numerology generation error:', error)
-    res.status(500).json({
-      error: 'Failed to generate numerology reading',
-      message: error.message
-    })
+    res.status(500).json({ error: 'Failed to generate numerology reading', message: error.message })
   }
 })
 
