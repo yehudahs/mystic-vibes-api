@@ -8,7 +8,7 @@ class AIService {
   }
 
   async call(route, data) {
-    const response = await axios.post(`${this.getUrl()}${route}`, data, { timeout: 120000 })
+    const response = await axios.post(`${this.getUrl()}${route}`, data, { timeout: 300000 })
     return response.data
   }
 
@@ -38,6 +38,24 @@ class AIService {
       provider: 'python-ai-service',
       model: 'ollama'
     }
+  }
+
+  async runPalmPipeline(imageBase64) {
+    const response = await axios.post(`${this.getUrl()}/palm/pipeline`, {
+      image: imageBase64
+    }, { timeout: 120000 })
+    if (!response.data.success) throw new Error(response.data.error || 'Pipeline failed')
+    return response.data
+  }
+
+  async interpretPalmFeature(featureKey, featureData, question = null) {
+    const response = await axios.post(`${this.getUrl()}/palm/interpret`, {
+      feature_key: featureKey,
+      feature_data: featureData,
+      question
+    }, { timeout: 660000 })
+    if (!response.data.success) throw new Error(response.data.error || 'Interpret failed')
+    return response.data
   }
 
   async generatePalmReading(imageBase64, question = null) {

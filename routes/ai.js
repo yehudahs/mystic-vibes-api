@@ -228,6 +228,36 @@ router.post('/mystical/generate', authenticateToken, async (req, res) => {
   }
 })
 
+// Run CV pipeline only (no Ollama) — fast, ~10s
+router.post('/palm/pipeline', optionalAuth, async (req, res) => {
+  try {
+    const { image } = req.body
+    if (!image) return res.status(400).json({ error: 'Image is required' })
+
+    let imageBase64 = image
+    if (image.includes('base64,')) imageBase64 = image.split('base64,')[1]
+
+    const result = await aiService.runPalmPipeline(imageBase64)
+    res.json({ success: true, features: result.features, images: result.images, image: result.image })
+  } catch (error) {
+    res.status(500).json({ error: 'Pipeline failed', message: error.message })
+  }
+})
+
+// Interpret a single palm feature via Ollama
+router.post('/palm/interpret', optionalAuth, async (req, res) => {
+  try {
+    const { feature_key, feature_data, question } = req.body
+    if (!feature_key) return res.status(400).json({ error: 'feature_key is required' })
+
+    const result = await aiService.interpretPalmFeature(feature_key, feature_data, question)
+    res.json({ success: true, feature_key, reading: result.reading })
+  } catch (error) {
+    // Return 200 so the frontend promise resolves (it checks success flag itself)
+    res.status(200).json({ success: false, error: error.message })
+  }
+})
+
 // Generate Palm Reading from Image (using CV+SAM+AI Pipeline)
 router.post('/palm/reading', optionalAuth, async (req, res) => {
   try {
