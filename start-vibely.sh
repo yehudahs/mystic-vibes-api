@@ -3,8 +3,9 @@
 # Exit on any error
 set -e
 
-# Get the directory of this script to use for relative paths
-SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+# Resolve to the parent directory (the monorepo root), since this script
+# lives inside mystic-vibes-api/ but sibling repos are at the same level.
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." &> /dev/null && pwd)
 AI_SERVICE_DIR="$SCRIPT_DIR/AI-service"
 
 # Color codes for output
