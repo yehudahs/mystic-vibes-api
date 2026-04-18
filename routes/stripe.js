@@ -499,7 +499,7 @@ router.post('/create-portal-session', authenticateToken, async (req, res) => {
           email: userEmail,
           metadata: {
             userId: userId,
-            source: 'vibely_portal_access'
+            source: 'mystic_vibes_portal_access'
           }
         })
         customerId = customer.id

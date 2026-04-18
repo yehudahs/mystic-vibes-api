@@ -20,11 +20,11 @@ export const authenticateToken = async (req, res, next) => {
     // Verify JWT token - be more lenient with algorithms to handle different token types
     let decoded
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || 'vibely-secret-key', { algorithms: ['HS256'] })
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'mystic-vibes-secret-key', { algorithms: ['HS256'] })
     } catch (algoError) {
       // If algorithm error, try without algorithm restriction for Google tokens
       try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET || 'vibely-secret-key')
+        decoded = jwt.verify(token, process.env.JWT_SECRET || 'mystic-vibes-secret-key')
       } catch (generalError) {
         // If still failing, check if it's a session token we stored directly
         decoded = jwt.decode(token)
@@ -83,10 +83,10 @@ export const optionalAuth = async (req, res, next) => {
     try {
       let decoded
       try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET || 'vibely-secret-key', { algorithms: ['HS256'] })
+        decoded = jwt.verify(token, process.env.JWT_SECRET || 'mystic-vibes-secret-key', { algorithms: ['HS256'] })
       } catch (algoError) {
         try {
-          decoded = jwt.verify(token, process.env.JWT_SECRET || 'vibely-secret-key')
+          decoded = jwt.verify(token, process.env.JWT_SECRET || 'mystic-vibes-secret-key')
         } catch (generalError) {
           decoded = jwt.decode(token)
           if (!decoded || typeof decoded === 'string') {
@@ -141,7 +141,7 @@ export const generateToken = (user) => {
       userId: user.id, 
       email: user.email 
     },
-    process.env.JWT_SECRET || 'vibely-secret-key',
+    process.env.JWT_SECRET || 'mystic-vibes-secret-key',
     { expiresIn: '7d', algorithm: 'HS256' }
   )
 }
