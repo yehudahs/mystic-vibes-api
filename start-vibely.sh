@@ -8,6 +8,16 @@ set -e
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." &> /dev/null && pwd)
 AI_SERVICE_DIR="$SCRIPT_DIR/AI-service"
 
+# Use Colima's Docker socket if available
+if [ -S "$HOME/.colima/default/docker.sock" ]; then
+  export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+fi
+
+# Use newer Docker CLI if the system one is too old
+if [ -x "/opt/homebrew/Cellar/docker/29.4.0/bin/docker" ]; then
+  export PATH="/opt/homebrew/Cellar/docker/29.4.0/bin:$PATH"
+fi
+
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -110,12 +120,20 @@ echo ""
 # Start Ollama (on port 11435 to avoid conflict with AI Service)
 echo "2️⃣ Starting Ollama AI..."
 
-# Check if Ollama is installed
-if ! command -v ollama &> /dev/null;
-then
-  echo -e "   ${RED}❌ ERROR: Ollama is not installed${NC}"
-  echo -e "   ${YELLOW}💡 Install: brew install ollama${NC}"
-  exit 1
+# Install Ollama if missing
+if ! command -v ollama &> /dev/null; then
+  echo "   📦 Ollama not found, installing..."
+  if command -v brew &> /dev/null; then
+    brew install ollama
+  else
+    echo "   ⬇️  Downloading Ollama installer..."
+    curl -fsSL https://ollama.com/install.sh | sh
+  fi
+  if ! command -v ollama &> /dev/null; then
+    echo -e "   ${RED}❌ ERROR: Ollama installation failed${NC}"
+    exit 1
+  fi
+  echo "   ✅ Ollama installed"
 fi
 
 if pgrep -x "ollama" > /dev/null;
@@ -139,6 +157,16 @@ then
 fi
 
 echo "   ✅ Ollama running on http://localhost:11435"
+
+# Pull required model if not already downloaded
+REQUIRED_MODEL="gemma4:26b"
+if ! OLLAMA_HOST=127.0.0.1:11435 ollama list 2>/dev/null | grep -q "$REQUIRED_MODEL"; then
+  echo "   📥 Downloading model $REQUIRED_MODEL (this may take a while)..."
+  OLLAMA_HOST=127.0.0.1:11435 ollama pull "$REQUIRED_MODEL"
+  echo "   ✅ Model $REQUIRED_MODEL ready"
+else
+  echo "   ✅ Model $REQUIRED_MODEL already downloaded"
+fi
 echo ""
 
 # Start Unified AI Service Gateway (port 11434)
@@ -152,6 +180,15 @@ then
   echo -e "   ${RED}❌ ERROR: Node.js is not installed${NC}"
   echo -e "   ${YELLOW}💡 Install: brew install node${NC}"
   exit 1
+fi
+
+# Set up Python venv with 3.9 if missing
+if [ ! -d "venv" ]; then
+  echo -e "   ${YELLOW}⚠️  Python venv not found, creating...${NC}"
+  /opt/homebrew/bin/python3.9 -m venv venv
+  venv/bin/pip install --upgrade pip -q
+  venv/bin/pip install -r requirements.txt > /tmp/vibely-pip-install.log 2>&1
+  echo "   ✅ Python venv ready"
 fi
 
 # Install node dependencies
