@@ -29,6 +29,18 @@ else
 fi
 echo ""
 
+# Stop Cloudflare Tunnel
+if [ -f /tmp/vibely-cloudflared.pid ]; then
+  CLOUDFLARED_PID=$(cat /tmp/vibely-cloudflared.pid)
+  echo "🌐 Stopping Cloudflare Tunnel (PID: $CLOUDFLARED_PID)..."
+  kill $CLOUDFLARED_PID 2>/dev/null && echo "   ✅ Tunnel stopped" || echo "   ⚠️  Already stopped"
+  rm /tmp/vibely-cloudflared.pid
+else
+  echo "🌐 Stopping Cloudflare Tunnel..."
+  pkill cloudflared 2>/dev/null && echo "   ✅ Tunnel stopped" || echo "   ⚠️  Tunnel not running"
+fi
+echo ""
+
 # Stop AI Service Gateway + Python AI Service
 if [ -f /tmp/vibely-ai-service.pid ]; then
   AI_PID=$(cat /tmp/vibely-ai-service.pid)

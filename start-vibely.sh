@@ -143,7 +143,7 @@ then
   sleep 2
 fi
 
-OLLAMA_HOST=127.0.0.1:11435 OLLAMA_NUM_PARALLEL=7 ollama serve > /tmp/vibely-ollama.log 2>&1 &
+OLLAMA_HOST=127.0.0.1:11435 OLLAMA_NUM_PARALLEL=7 OLLAMA_KEEP_ALIVE=24h ollama serve > /tmp/vibely-ollama.log 2>&1 &
 OLLAMA_PID=$!
 echo "   ⏳ Ollama starting on port 11435 (PID: $OLLAMA_PID)..."
 sleep 3
@@ -159,7 +159,7 @@ fi
 echo "   ✅ Ollama running on http://localhost:11435"
 
 # Pull required model if not already downloaded
-REQUIRED_MODEL="gemma4:26b"
+REQUIRED_MODEL="gemma3:4b"
 if ! OLLAMA_HOST=127.0.0.1:11435 ollama list 2>/dev/null | grep -q "$REQUIRED_MODEL"; then
   echo "   📥 Downloading model $REQUIRED_MODEL (this may take a while)..."
   OLLAMA_HOST=127.0.0.1:11435 ollama pull "$REQUIRED_MODEL"
@@ -169,9 +169,14 @@ else
 fi
 echo ""
 
+# Download AI model weights if needed (SAM for palm CV pipeline)
+echo "3️⃣  Checking AI model weights..."
+cd "$AI_SERVICE_DIR"
+bash "$AI_SERVICE_DIR/download-models.sh"
+
 # Start Unified AI Service Gateway (port 11434)
 # server.js automatically spawns the Python AI Service (port 5001) as a child process
-echo "3️⃣  Starting Unified AI Service Gateway..."
+echo "4️⃣  Starting Unified AI Service Gateway..."
 cd "$AI_SERVICE_DIR"
 
 # Check if Node.js is installed
@@ -213,8 +218,30 @@ fi
 echo "   ✅ AI Service running on http://localhost:11434"
 echo ""
 
+# Start Cloudflare Tunnel
+echo "5️⃣  Starting Cloudflare Tunnel (ai.mystic-vibes.com)..."
+
+if ! command -v cloudflared &> /dev/null; then
+  echo -e "   ${RED}❌ ERROR: cloudflared is not installed${NC}"
+  echo -e "   ${YELLOW}💡 Install: brew install cloudflare/cloudflare/cloudflared${NC}"
+  exit 1
+fi
+
+cloudflared tunnel run mystic-ai > /tmp/vibely-cloudflared.log 2>&1 &
+CLOUDFLARED_PID=$!
+echo $CLOUDFLARED_PID > /tmp/vibely-cloudflared.pid
+echo "   ⏳ Tunnel starting (PID: $CLOUDFLARED_PID)..."
+sleep 4
+
+if ! curl -s https://ai.mystic-vibes.com/health > /dev/null 2>&1; then
+  echo -e "   ${YELLOW}⚠️  Tunnel may still be connecting (check: tail -f /tmp/vibely-cloudflared.log)${NC}"
+else
+  echo "   ✅ Tunnel live at https://ai.mystic-vibes.com"
+fi
+echo ""
+
 # Start Backend
-echo "5️⃣  Starting Backend API..."
+echo "6️⃣  Starting Backend API..."
 
 BACKEND_DIR="$SCRIPT_DIR/mystic-vibes-api"
 
@@ -255,7 +282,7 @@ echo "   ✅ Backend running on http://localhost:3001"
 echo ""
 
 # Start Frontend
-echo "6️⃣  Starting Frontend..."
+echo "7️⃣  Starting Frontend..."
 
 FRONTEND_DIR="$SCRIPT_DIR/mystic-vibes-ai"
 
@@ -295,6 +322,11 @@ fi
 echo "   ✅ Frontend running on http://localhost:3000"
 echo ""
 
+# Run AI reading smoke tests
+echo "8️⃣  Running AI reading smoke tests..."
+bash "$AI_SERVICE_DIR/test-readings.sh"
+echo ""
+
 echo "==============================================="
 echo -e "${GREEN}✅ ALL SERVICES VERIFIED AND RUNNING!${NC}"
 echo "==============================================="
@@ -312,12 +344,14 @@ echo ""
 echo "📝 Process IDs:"
 echo "   Ollama:      $OLLAMA_PID"
 echo "   AI Service:  $AI_SERVICE_PID  (spawns Python AI Service internally)"
+echo "   Tunnel:      $CLOUDFLARED_PID"
 echo "   Backend:     $BACKEND_PID"
 echo "   Frontend:    $FRONTEND_PID"
 echo ""
 echo "📊 View Logs:"
 echo "   Ollama:      tail -f /tmp/vibely-ollama.log"
 echo "   AI Service:  tail -f /tmp/vibely-ai-service.log"
+echo "   Tunnel:      tail -f /tmp/vibely-cloudflared.log"
 echo "   Backend:     tail -f /tmp/vibely-backend.log"
 echo "   Frontend:    tail -f /tmp/vibely-frontend.log"
 echo ""
