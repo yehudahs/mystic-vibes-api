@@ -259,12 +259,8 @@ if [ ! -f "package.json" ]; then
   exit 1
 fi
 
-# Check if node_modules exists
-if [ ! -d "node_modules" ]; then
-  echo -e "   ${YELLOW}⚠️  node_modules not found, running npm install...${NC}"
-  npm install
-fi
-
+echo "   📦 Installing backend dependencies..."
+npm install --silent
 npm run dev > /tmp/vibely-backend.log 2>&1 &
 BACKEND_PID=$!
 echo "   ⏳ Backend starting (PID: $BACKEND_PID)..."
@@ -300,12 +296,8 @@ if [ ! -f "package.json" ]; then
   exit 1
 fi
 
-# Check if node_modules exists
-if [ ! -d "node_modules" ]; then
-  echo -e "   ${YELLOW}⚠️  node_modules not found, running npm install...${NC}"
-  npm install
-fi
-
+echo "   📦 Installing frontend dependencies..."
+npm install --silent
 npm run dev > /tmp/vibely-frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo "   ⏳ Frontend starting (PID: $FRONTEND_PID)..."
