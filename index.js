@@ -71,7 +71,12 @@ const allowedOrigins = [
   'http://127.0.0.1:5174',
   'http://127.0.0.1:8080',
   'http://127.0.0.1:8081',
-  process.env.FRONTEND_URL
+  process.env.FRONTEND_URL,
+  'https://mystic-vibes.com',
+  'https://www.mystic-vibes.com',
+  'https://staging.mystic-vibes.com',
+  'https://mystic-vibes-ai-production.up.railway.app',
+  'https://mystic-vibes-ai-staging.up.railway.app',
 ].filter(Boolean) // Remove any undefined values
 
 app.use(cors({
