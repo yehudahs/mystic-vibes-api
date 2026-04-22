@@ -152,11 +152,24 @@ router.post('/google', asyncHandler(async (req, res) => {
 
   const { token, userInfo } = value
 
-  // Check if user exists
+  // Check if user exists by Google provider_id or email
   let userResult = await query(
     'SELECT * FROM users WHERE provider_id = $1 AND provider = $2',
     [userInfo.sub, 'google']
   )
+
+  // Fallback: match by email (handles users who previously registered with email)
+  if (userResult.rows.length === 0) {
+    userResult = await query('SELECT * FROM users WHERE email = $1', [userInfo.email])
+    if (userResult.rows.length > 0) {
+      // Link existing account to Google
+      await query(
+        `UPDATE users SET provider = 'google', provider_id = $1, avatar_url = $2, last_login_at = NOW(), updated_at = NOW() WHERE id = $3`,
+        [userInfo.sub, userInfo.picture, userResult.rows[0].id]
+      )
+      userResult = await query('SELECT * FROM users WHERE id = $1', [userResult.rows[0].id])
+    }
+  }
 
   let user
 
