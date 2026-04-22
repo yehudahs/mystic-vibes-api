@@ -1,3 +1,5 @@
+import './instrument.js'
+import * as Sentry from '@sentry/node'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -184,6 +186,9 @@ if (process.env.NODE_ENV !== 'development') {
     })
   })
 }
+
+// Sentry error handler (must be before other error middleware)
+Sentry.setupExpressErrorHandler(app)
 
 // Error handling middleware (must be last)
 app.use(errorHandler)
