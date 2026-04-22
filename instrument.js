@@ -5,4 +5,5 @@ Sentry.init({
   environment: process.env.NODE_ENV || 'development',
   sendDefaultPii: false,
   tracesSampleRate: 0.2,
+  ignoreErrors: ["has no method 'updateFrom'"],
 })
