@@ -28,6 +28,19 @@ echo "🚀 Starting Vibely AI Complete Stack..."
 echo "==============================================="
 echo ""
 
+# Ensure logrotate is installed and launchd job is registered
+LOGROTATE_CONF="$SCRIPT_DIR/mystic-vibes-api/logrotate/vibely.conf"
+LOGROTATE_PLIST="$HOME/Library/LaunchAgents/com.vibely.logrotate.plist"
+if ! command -v logrotate &> /dev/null; then
+  echo "📋 Installing logrotate for log management..."
+  brew install logrotate
+fi
+if [ ! -f "$LOGROTATE_PLIST" ]; then
+  echo "📋 Registering logrotate launchd job..."
+  cp "$SCRIPT_DIR/mystic-vibes-api/logrotate/com.vibely.logrotate.plist" "$LOGROTATE_PLIST"
+  launchctl load "$LOGROTATE_PLIST"
+fi
+
 # Clean up any existing processes
 echo "0️⃣ Cleaning up existing processes..."
 pkill ollama 2>/dev/null || true
