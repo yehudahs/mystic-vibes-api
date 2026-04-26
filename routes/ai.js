@@ -133,7 +133,7 @@ router.post('/tarot/reading', optionalAuth, async (req, res) => {
 })
 
 // Generate Horoscope
-router.post('/horoscope/generate', authenticateToken, async (req, res) => {
+router.post('/horoscope/generate', optionalAuth, async (req, res) => {
   try {
     const { sign, type = 'daily', question = null } = req.body
 
