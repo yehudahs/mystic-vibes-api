@@ -6,6 +6,7 @@ import Joi from 'joi'
 import { query } from '../config/database.js'
 import { generateToken, createSession } from '../middleware/auth.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { sendVerificationEmail } from '../services/emailService.js'
 
 const router = express.Router()
 
@@ -65,32 +66,35 @@ router.post('/register', asyncHandler(async (req, res) => {
   const saltRounds = 12
   const hashedPassword = await bcrypt.hash(password, saltRounds)
 
+  // Generate email verification token
+  const verificationToken = crypto.randomBytes(32).toString('hex')
+  const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
   // Create user
   const userResult = await query(
-    `INSERT INTO users (name, email, password_hash, provider, provider_id)
-     VALUES ($1, $2, $3, 'email', $4)
+    `INSERT INTO users (name, email, password_hash, provider, provider_id, email_verified, verification_token, verification_token_expires_at)
+     VALUES ($1, $2, $3, 'email', $4, false, $5, $6)
      RETURNING id, name, email, avatar_url, provider, created_at`,
-    [name, email, hashedPassword, email]
+    [name, email, hashedPassword, email, verificationToken, verificationExpires]
   )
 
   const user = userResult.rows[0]
 
-  // Generate token and create session
-  const token = generateToken(user)
-  await createSession(user.id, token, req)
+  // Send verification email (non-blocking — don't fail registration if email fails)
+  sendVerificationEmail({ name: user.name, email: user.email, token: verificationToken })
+    .catch(err => console.error('[auth] failed to send verification email:', err))
 
   res.status(201).json({
-    message: 'User registered successfully',
+    message: 'Account created. Please check your email to verify your address.',
+    emailVerificationRequired: true,
     user: {
       id: user.id,
       name: user.name,
       email: user.email,
       avatar: user.avatar_url,
-      birthday: user.birthday,
       provider: user.provider,
       createdAt: user.created_at
-    },
-    token
+    }
   })
 }))
 
@@ -119,6 +123,14 @@ router.post('/login', asyncHandler(async (req, res) => {
   const isValidPassword = await bcrypt.compare(password, user.password_hash)
   if (!isValidPassword) {
     return res.status(401).json({ error: 'Invalid email or password' })
+  }
+
+  // Block unverified email accounts
+  if (!user.email_verified) {
+    return res.status(403).json({
+      error: 'Please verify your email before logging in. Check your inbox for the verification link.',
+      emailVerificationRequired: true
+    })
   }
 
   // Update last login
@@ -209,6 +221,41 @@ router.post('/google', asyncHandler(async (req, res) => {
       email: user.email,
       avatar: user.avatar_url,
       birthday: user.birthday,
+      provider: user.provider,
+      createdAt: user.created_at
+    },
+    token: sessionToken
+  })
+}))
+
+// GET /api/auth/verify-email?token=... — verify email address
+router.get('/verify-email', asyncHandler(async (req, res) => {
+  const { token } = req.query
+  if (!token) return res.status(400).json({ error: 'Token is required' })
+
+  const result = await query(
+    `UPDATE users
+     SET email_verified = true, verification_token = NULL, verification_token_expires_at = NULL
+     WHERE verification_token = $1 AND verification_token_expires_at > NOW() AND email_verified = false
+     RETURNING id, name, email, avatar_url, provider, created_at`,
+    [token]
+  )
+
+  if (result.rows.length === 0) {
+    return res.status(400).json({ error: 'Invalid or expired verification link.' })
+  }
+
+  const user = result.rows[0]
+  const sessionToken = generateToken(user)
+  await createSession(user.id, sessionToken, req)
+
+  res.json({
+    message: 'Email verified successfully.',
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar_url,
       provider: user.provider,
       createdAt: user.created_at
     },

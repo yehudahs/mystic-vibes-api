@@ -1,35 +1,41 @@
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 
-const SUPPORT_EMAIL = 'yehudahs@mystic-vibes.com'
+const resend = new Resend(process.env.RESEND_API_KEY)
+const FROM = 'Mystic Vibes <noreply@mystic-vibes.com>'
+const SUPPORT_EMAIL = 'support@mystic-vibes.com'
 
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
+export async function sendVerificationEmail({ name, email, token }) {
+  const url = `${process.env.FRONTEND_URL}/verify-email?token=${token}`
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: 'Verify your Mystic Vibes email',
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:auto">
+        <h2>Welcome to Mystic Vibes, ${name}!</h2>
+        <p>Click the button below to verify your email address. The link expires in 24 hours.</p>
+        <a href="${url}" style="display:inline-block;padding:12px 24px;background:#7c3aed;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
+          Verify Email
+        </a>
+        <p style="margin-top:16px;color:#888;font-size:13px">
+          Or copy this link: <a href="${url}">${url}</a>
+        </p>
+      </div>
+    `,
   })
 }
 
 export async function sendSupportEmail({ name, email, type, message }) {
-  const transporter = createTransporter()
-
-  const subject = `[Mystic Vibes Support] ${type} from ${name}`
-  const html = `
-    <h2>${type}</h2>
-    <p><strong>From:</strong> ${name} &lt;${email}&gt;</p>
-    <hr/>
-    <p>${message.replace(/\n/g, '<br/>')}</p>
-  `
-
-  await transporter.sendMail({
-    from: `"Mystic Vibes" <${process.env.SMTP_USER}>`,
+  await resend.emails.send({
+    from: FROM,
     to: SUPPORT_EMAIL,
     replyTo: email,
-    subject,
-    html,
+    subject: `[Support] ${type} from ${name}`,
+    html: `
+      <h2>${type}</h2>
+      <p><strong>From:</strong> ${name} &lt;${email}&gt;</p>
+      <hr/>
+      <p>${message.replace(/\n/g, '<br/>')}</p>
+    `,
   })
 }
