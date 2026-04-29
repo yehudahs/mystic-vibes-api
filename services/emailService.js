@@ -1,12 +1,15 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const getResend = () => {
+  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is not set')
+  return new Resend(process.env.RESEND_API_KEY)
+}
 const FROM = 'Mystic Vibes <noreply@mystic-vibes.com>'
 const SUPPORT_EMAIL = 'support@mystic-vibes.com'
 
 export async function sendVerificationEmail({ name, email, token }) {
   const url = `${process.env.FRONTEND_URL}/verify-email?token=${token}`
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: email,
     subject: 'Verify your Mystic Vibes email',
@@ -26,7 +29,7 @@ export async function sendVerificationEmail({ name, email, token }) {
 }
 
 export async function sendSupportEmail({ name, email, type, message }) {
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: SUPPORT_EMAIL,
     replyTo: email,
