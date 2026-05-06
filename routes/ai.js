@@ -238,7 +238,19 @@ router.post('/palm/pipeline', optionalAuth, async (req, res) => {
     if (image.includes('base64,')) imageBase64 = image.split('base64,')[1]
 
     const result = await aiService.runPalmPipeline(imageBase64)
-    res.json({ success: true, features: result.features, images: result.images, image: result.image, handedness: result.handedness })
+    res.json({
+      success: true,
+      features: result.features,
+      images: result.images,
+      image: result.image,
+      handedness: result.handedness,
+      // Structured overlay payload (frontend renders SVG on base_image)
+      base_image: result.base_image,
+      base_size: result.base_size,
+      mount_base_image: result.mount_base_image,
+      mount_base_size: result.mount_base_size,
+      overlay: result.overlay,
+    })
   } catch (error) {
     res.status(500).json({ error: 'Pipeline failed', message: error.message })
   }
