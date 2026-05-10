@@ -240,7 +240,8 @@ router.post('/palm/pipeline', optionalAuth, async (req, res) => {
     const result = await aiService.runPalmPipeline(imageBase64)
     res.json({
       success: true,
-      features: result.features,
+      measurements: result.measurements,
+      mounts: result.mounts,
       images: result.images,
       image: result.image,
       handedness: result.handedness,
@@ -259,10 +260,10 @@ router.post('/palm/pipeline', optionalAuth, async (req, res) => {
 // Interpret a single palm feature via Ollama
 router.post('/palm/interpret', optionalAuth, async (req, res) => {
   try {
-    const { feature_key, feature_data, question } = req.body
+    const { feature_key, feature_data, question, handedness } = req.body
     if (!feature_key) return res.status(400).json({ error: 'feature_key is required' })
 
-    const result = await aiService.interpretPalmFeature(feature_key, feature_data, question)
+    const result = await aiService.interpretPalmFeature(feature_key, feature_data, question, handedness)
     res.json({ success: true, feature_key, reading: result.reading })
   } catch (error) {
     // Return 200 so the frontend promise resolves (it checks success flag itself)
