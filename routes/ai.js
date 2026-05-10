@@ -238,6 +238,7 @@ router.post('/palm/pipeline', optionalAuth, async (req, res) => {
     if (image.includes('base64,')) imageBase64 = image.split('base64,')[1]
 
     const result = await aiService.runPalmPipeline(imageBase64)
+    if (result.ok === false) return res.json(result)  // validation failure — pass through
     res.json({
       success: true,
       measurements: result.measurements,
