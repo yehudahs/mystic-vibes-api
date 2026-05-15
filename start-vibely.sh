@@ -172,7 +172,7 @@ fi
 echo "   ✅ Ollama running on http://localhost:11435"
 
 # Pull required model if not already downloaded
-REQUIRED_MODEL="gemma3:4b"
+REQUIRED_MODEL="${OLLAMA_MODEL:-qwen2.5:7b}"
 if ! OLLAMA_HOST=127.0.0.1:11435 ollama list 2>/dev/null | grep -q "$REQUIRED_MODEL"; then
   echo "   📥 Downloading model $REQUIRED_MODEL (this may take a while)..."
   OLLAMA_HOST=127.0.0.1:11435 ollama pull "$REQUIRED_MODEL"
