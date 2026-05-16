@@ -246,6 +246,7 @@ router.post('/palm/pipeline', optionalAuth, async (req, res) => {
       images: result.images,
       image: result.image,
       handedness: result.handedness,
+      measurement_source: result.measurement_source,
       // Structured overlay payload (frontend renders SVG on base_image)
       base_image: result.base_image,
       base_size: result.base_size,
@@ -265,7 +266,13 @@ router.post('/palm/interpret', optionalAuth, async (req, res) => {
     if (!feature_key) return res.status(400).json({ error: 'feature_key is required' })
 
     const result = await aiService.interpretPalmFeature(feature_key, feature_data, question, handedness)
-    res.json({ success: true, feature_key, reading: result.reading })
+    res.json({
+      success: true,
+      feature_key,
+      reading:       result.reading,
+      sources:       result.sources || [],
+      trait_sources: result.trait_sources || [],
+    })
   } catch (error) {
     // Return 200 so the frontend promise resolves (it checks success flag itself)
     res.status(200).json({ success: false, error: error.message })
