@@ -117,6 +117,8 @@ router.post('/tarot/reading', optionalAuth, async (req, res) => {
     res.json({
       success: true,
       reading: reading.content,
+      sources:       reading.sources || [],
+      trait_sources: reading.trait_sources || [],
       metadata: {
         provider: reading.provider,
         model: reading.model,
@@ -171,9 +173,11 @@ router.post('/horoscope/generate', optionalAuth, async (req, res) => {
 
     res.json({
       success: true,
-      horoscope: horoscope.content,
-      sign: sign,
-      type: type,
+      horoscope:     horoscope.content,
+      sign:          sign,
+      type:          type,
+      sources:       horoscope.sources || [],
+      trait_sources: horoscope.trait_sources || [],
       metadata: {
         provider: horoscope.provider,
         model: horoscope.model,
@@ -464,6 +468,8 @@ router.post('/numerology/generate', optionalAuth, async (req, res) => {
       calculation: result.calculation,
       name_breakdown: result.name_breakdown,
       meanings: result.meanings,
+      sources:       result.sources || [],
+      trait_sources: result.trait_sources || [],
       metadata: { provider: result.provider, model: result.model }
     })
   } catch (error) {

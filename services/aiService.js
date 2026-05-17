@@ -14,12 +14,24 @@ class AIService {
 
   async generateTarotReading(cards, question, spread, context = null) {
     const data = await this.call('/tarot', { cards, question, spread })
-    return { content: data.reading, provider: 'python-ai-service', model: 'ollama' }
+    return {
+      content:       data.reading,
+      sources:       data.sources || [],
+      trait_sources: data.trait_sources || [],
+      provider:      'python-ai-service',
+      model:         'ollama',
+    }
   }
 
   async generateHoroscope(sign, type = 'daily', question = null) {
     const data = await this.call('/horoscope', { sign, type, question })
-    return { content: data.horoscope, provider: 'python-ai-service', model: 'ollama' }
+    return {
+      content:       data.horoscope,
+      sources:       data.sources || [],
+      trait_sources: data.trait_sources || [],
+      provider:      'python-ai-service',
+      model:         'ollama',
+    }
   }
 
   async generateMysticalContent(type, context = {}) {
@@ -35,6 +47,8 @@ class AIService {
       calculation: data.calculation,
       name_breakdown: data.name_breakdown,
       meanings: data.meanings,
+      sources:       data.sources || [],
+      trait_sources: data.trait_sources || [],
       provider: 'python-ai-service',
       model: 'ollama'
     }
