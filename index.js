@@ -1,9 +1,9 @@
 import './instrument.js'
+import './config/env.js'
 import * as Sentry from '@sentry/node'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
-import dotenv from 'dotenv'
 import rateLimit from 'express-rate-limit'
 import morgan from 'morgan'
 import path from 'path'
@@ -11,10 +11,6 @@ import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-
-// Load environment variables from server/.env and root .env FIRST
-dotenv.config({ path: path.join(__dirname, '.env') }) // Load server-specific .env
-dotenv.config() // Load root .env as fallback
 
 // Import routes AFTER environment variables are loaded
 import authRoutes from './routes/auth.js'
@@ -31,7 +27,7 @@ import supportRoutes from './routes/support.js'
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js'
-import { authenticateToken } from './middleware/auth.js'
+import { authenticateToken, optionalAuth } from './middleware/auth.js'
 
 // Import scheduled jobs
 import { startAllScheduledJobs } from './services/scheduledJobs.js'
@@ -153,7 +149,7 @@ app.use('/api/spreads', spreadRoutes)
 app.use('/api/horoscopes', horoscopeRoutes)
 app.use('/api/stripe', stripeRoutes)
 app.use('/api/ai-status', aiStatusRoutes)
-app.use('/api/support', authenticateToken, supportRoutes)
+app.use('/api/support', optionalAuth, supportRoutes)
 
 // Direct webhook route for Stripe Dashboard compatibility - redirect to stripe webhook
 app.post('/api/webhook', (req, res, next) => {
