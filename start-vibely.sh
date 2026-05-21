@@ -128,6 +128,29 @@ then
   exit 1
 fi
 fi
+
+# Bootstrap DB schema + migrations if missing.
+# Idempotent: only applies the base schema when `users` table doesn't exist;
+# always re-runs migrations (most use CREATE/ALTER IF NOT EXISTS).
+echo "   🗄️  Checking database schema..."
+USERS_EXISTS=$(PGPASSWORD=password docker exec vibely-postgres psql -U postgres -d vibely_ai -tA -c "SELECT to_regclass('public.users') IS NOT NULL" 2>/dev/null)
+if [ "$USERS_EXISTS" != "t" ]; then
+  echo "   📋 Base schema missing — applying database-schema.sql..."
+  PGPASSWORD=password docker exec -i vibely-postgres psql -U postgres -d vibely_ai < "$SCRIPT_DIR/mystic-vibes-api/database-schema.sql" > /tmp/vibely-db-schema.log 2>&1
+  echo "   ✅ Base schema applied"
+else
+  echo "   ✅ Base schema already present"
+fi
+
+# Apply migrations (idempotent — most use IF NOT EXISTS)
+if [ -d "$SCRIPT_DIR/mystic-vibes-api/migrations" ]; then
+  for mig in "$SCRIPT_DIR/mystic-vibes-api/migrations"/*.sql; do
+    mig_name=$(basename "$mig")
+    PGPASSWORD=password docker exec -i vibely-postgres psql -U postgres -d vibely_ai < "$mig" > /tmp/vibely-db-migration.log 2>&1 \
+      && echo "   ✅ migration: $mig_name" \
+      || echo -e "   ${YELLOW}⚠ migration $mig_name had warnings (often expected for idempotent re-runs)${NC}"
+  done
+fi
 echo ""
 
 # Start Ollama (on port 11435 to avoid conflict with AI Service)
