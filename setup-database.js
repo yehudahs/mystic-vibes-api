@@ -76,11 +76,14 @@ async function setupDatabase() {
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)',
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255)',
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_price_id VARCHAR(255)',
-        'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50)',
+        'ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_status VARCHAR(50)',
+        'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_state VARCHAR(50) DEFAULT \'unsubscribed\'',
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_start TIMESTAMP WITH TIME ZONE',
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_end TIMESTAMP WITH TIME ZONE',
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_cancel_at_period_end BOOLEAN DEFAULT false',
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_canceled_at TIMESTAMP WITH TIME ZONE',
+        'ALTER TABLE users ADD COLUMN IF NOT EXISTS last_state_check TIMESTAMP WITH TIME ZONE',
+        'ALTER TABLE users ADD COLUMN IF NOT EXISTS state_change_reason VARCHAR(255)',
         'ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_context JSONB DEFAULT NULL'
       ]
 
@@ -92,7 +95,8 @@ async function setupDatabase() {
       const subscriptionIndexes = [
         'CREATE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id)',
         'CREATE INDEX IF NOT EXISTS idx_users_stripe_subscription_id ON users(stripe_subscription_id)',
-        'CREATE INDEX IF NOT EXISTS idx_users_subscription_status ON users(subscription_status)'
+        'CREATE INDEX IF NOT EXISTS idx_users_stripe_subscription_status ON users(stripe_subscription_status)',
+        'CREATE INDEX IF NOT EXISTS idx_users_subscription_state ON users(subscription_state)'
       ]
 
       for (const sql of subscriptionIndexes) {
@@ -141,11 +145,14 @@ async function setupDatabase() {
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)',
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255)',
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_price_id VARCHAR(255)',
-          'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50)',
+          'ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_status VARCHAR(50)',
+          'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_state VARCHAR(50) DEFAULT \'unsubscribed\'',
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_start TIMESTAMP WITH TIME ZONE',
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_current_period_end TIMESTAMP WITH TIME ZONE',
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_cancel_at_period_end BOOLEAN DEFAULT false',
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_canceled_at TIMESTAMP WITH TIME ZONE',
+          'ALTER TABLE users ADD COLUMN IF NOT EXISTS last_state_check TIMESTAMP WITH TIME ZONE',
+          'ALTER TABLE users ADD COLUMN IF NOT EXISTS state_change_reason VARCHAR(255)',
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_context JSONB DEFAULT NULL'
         ]
 
@@ -157,7 +164,8 @@ async function setupDatabase() {
         const subscriptionIndexes = [
           'CREATE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id)',
           'CREATE INDEX IF NOT EXISTS idx_users_stripe_subscription_id ON users(stripe_subscription_id)',
-          'CREATE INDEX IF NOT EXISTS idx_users_subscription_status ON users(subscription_status)'
+          'CREATE INDEX IF NOT EXISTS idx_users_stripe_subscription_status ON users(stripe_subscription_status)',
+          'CREATE INDEX IF NOT EXISTS idx_users_subscription_state ON users(subscription_state)'
         ]
 
         for (const sql of subscriptionIndexes) {

@@ -1,5 +1,8 @@
+// Side-effect imports — must run before anything else.
+// instrument.js initializes Sentry; config/env.js loads .env + validates required vars.
 import './instrument.js'
 import './config/env.js'
+
 import * as Sentry from '@sentry/node'
 import express from 'express'
 import cors from 'cors'
@@ -12,7 +15,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Import routes AFTER environment variables are loaded
+// Route handlers
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
 import readingRoutes from './routes/readings.js'
