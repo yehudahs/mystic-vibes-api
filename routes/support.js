@@ -2,6 +2,7 @@ import express from 'express'
 import Joi from 'joi'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { sendSupportEmail } from '../services/emailService.js'
+import { VERSION_INFO } from './version.js'
 
 const router = express.Router()
 
@@ -12,6 +13,13 @@ const supportSchema = Joi.object({
   email: Joi.string().email().optional(),
   // Honeypot: legitimate users won't fill this; bots typically do
   website: Joi.string().allow('').optional(),
+  // Frontend version metadata, sent automatically by the support form
+  clientVersion: Joi.object({
+    version: Joi.string().max(40).optional(),
+    commit: Joi.string().max(40).optional(),
+    environment: Joi.string().max(40).optional(),
+    builtAt: Joi.string().max(40).optional(),
+  }).optional(),
 })
 
 router.post('/', asyncHandler(async (req, res) => {
@@ -35,7 +43,14 @@ router.post('/', asyncHandler(async (req, res) => {
     })
   }
 
-  await sendSupportEmail({ name, email, type: value.type, message: value.message })
+  await sendSupportEmail({
+    name,
+    email,
+    type: value.type,
+    message: value.message,
+    clientVersion: value.clientVersion,
+    serverVersion: VERSION_INFO,
+  })
 
   res.json({ success: true, message: 'Your message has been sent. Thank you!' })
 }))
