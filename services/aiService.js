@@ -7,8 +7,20 @@ class AIService {
     return url
   }
 
+  getAuthHeaders() {
+    const key = process.env.AI_SERVICES_KEY
+    if (!key) throw new Error('AI_SERVICES_KEY environment variable is required')
+    return {
+      'Content-Type': 'application/json',
+      'X-Service-Auth': key,
+    }
+  }
+
   async call(route, data) {
-    const response = await axios.post(`${this.getUrl()}${route}`, data, { timeout: 300000 })
+    const response = await axios.post(`${this.getUrl()}${route}`, data, {
+      timeout: 300000,
+      headers: this.getAuthHeaders(),
+    })
     return response.data
   }
 
@@ -57,7 +69,7 @@ class AIService {
   async runPalmPipeline(imageBase64) {
     const response = await axios.post(`${this.getUrl()}/palm/pipeline`, {
       image: imageBase64
-    }, { timeout: 120000 })
+    }, { timeout: 120000, headers: this.getAuthHeaders() })
     if (response.data.ok === false) return response.data  // validation failure — pass through
     if (!response.data.success) throw new Error(response.data.error || 'Pipeline failed')
     return response.data
@@ -69,7 +81,7 @@ class AIService {
       feature_data: featureData,
       question,
       handedness,
-    }, { timeout: 660000 })
+    }, { timeout: 660000, headers: this.getAuthHeaders() })
     if (!response.data.success) throw new Error(response.data.error || 'Interpret failed')
     return response.data
   }
@@ -78,7 +90,7 @@ class AIService {
     const response = await axios.post(`${this.getUrl()}/palm/analyze`, {
       image: imageBase64,
       question
-    }, { timeout: 300000 })
+    }, { timeout: 300000, headers: this.getAuthHeaders() })
 
     if (!response.data.success) {
       throw new Error(response.data.error || 'Pipeline analysis failed')

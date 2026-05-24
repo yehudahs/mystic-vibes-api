@@ -46,7 +46,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://apis.google.com", "https://js.stripe.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com", "https://js.stripe.com"],
       connectSrc: ["'self'", "https://accounts.google.com", "https://api.stripe.com"],
       frameSrc: ["'self'", "https://accounts.google.com", "https://js.stripe.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
@@ -81,23 +81,19 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (non-browser clients: curl, server-to-server,
+    // mobile apps). Browsers always send Origin, so this does not weaken
+    // browser CSRF protection while still permitting legitimate non-browser use.
     if (!origin) return callback(null, true)
 
-    // Check if origin is in allowed list
     if (allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true)
     }
 
-    // Allow Lovable.app preview URLs (for Railway deployments)
-    if (origin && origin.includes('.lovable.app')) {
-      console.log(`✅ Allowing Lovable preview: ${origin}`)
-      return callback(null, true)
-    }
-
-    // Block everything else
+    // NOTE: previously allowed any *.lovable.app — removed. lovable.app is a
+    // public hosted-preview platform, so allowing it with credentials:true
+    // turned any attacker-hosted lovable.app subdomain into a CSRF foothold.
     console.log(`❌ CORS blocked origin: ${origin}`)
-    console.log(`✅ Allowed origins:`, allowedOrigins)
     callback(new Error('Not allowed by CORS'))
   },
   credentials: true,
@@ -106,13 +102,22 @@ app.use(cors({
   optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
 }))
 
-// Rate limiting
+// Global rate limit (loose — applies to all routes as a backstop)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // Higher limit for development
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000,
   message: 'Too many requests from this IP, please try again later.'
 })
 app.use(limiter)
+
+// Strict per-IP limiter for auth surfaces — credential-stuffing / brute-force / OAuth-replay defense
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'production' ? 10 : 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many auth attempts, slow down and try again shortly.' }
+})
 
 // Stripe webhook needs raw body - must be before other body parsing
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }))
@@ -145,7 +150,7 @@ app.get('/api/health', healthResponse)
 
 
 // API routes
-app.use('/api/auth', authRoutes)
+app.use('/api/auth', authLimiter, authRoutes)
 app.use('/api/users', authenticateToken, userRoutes)
 app.use('/api/readings', authenticateToken, unifiedReadingsRoutes) // NEW: Unified readings endpoint
 app.use('/api/readings', authenticateToken, readingRoutes) // Keep old tarot-specific endpoint for backward compatibility

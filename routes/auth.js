@@ -3,12 +3,22 @@ import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 import jwt from 'jsonwebtoken'
 import Joi from 'joi'
+import { OAuth2Client } from 'google-auth-library'
 import { query } from '../config/database.js'
 import { generateToken, createSession } from '../middleware/auth.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
 import { sendVerificationEmail } from '../services/emailService.js'
 
 const router = express.Router()
+
+// Lazy-init Google client — if GOOGLE_CLIENT_ID is unset, the /google route
+// returns 503 instead of crashing the whole API (so local dev without Google
+// configured still boots).
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || null
+const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null
+if (!GOOGLE_CLIENT_ID) {
+  console.warn('[auth] GOOGLE_CLIENT_ID not set — /api/auth/google will be disabled')
+}
 
 // Helper function to hash tokens (same as in auth middleware)
 const hashToken = (token) => {
@@ -39,13 +49,7 @@ const loginSchema = Joi.object({
 
 const googleAuthSchema = Joi.object({
   token: Joi.string().required(),
-  userInfo: Joi.object({
-    sub: Joi.string().required(),
-    name: Joi.string().required(),
-    email: Joi.string().email().required(),
-    picture: Joi.string().uri().optional()
-  }).required()
-})
+}).unknown(true) // ignore any client-supplied userInfo — we derive it from the verified token
 
 // POST /api/auth/register - User registration
 router.post('/register', asyncHandler(async (req, res) => {
@@ -162,7 +166,39 @@ router.post('/google', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: error.details[0].message })
   }
 
-  const { token, userInfo } = value
+  const { token } = value
+
+  if (!googleAuthClient) {
+    return res.status(503).json({ error: 'Google sign-in is not configured on this server' })
+  }
+
+  // Verify the Google ID token cryptographically against Google's JWKS.
+  // This is the only trustworthy source of the user's identity — never trust client-supplied userInfo.
+  let payload
+  try {
+    const ticket = await googleAuthClient.verifyIdToken({
+      idToken: token,
+      audience: GOOGLE_CLIENT_ID,
+    })
+    payload = ticket.getPayload()
+  } catch (err) {
+    console.warn('[auth/google] ID token verification failed:', err.message)
+    return res.status(401).json({ error: 'Invalid Google token' })
+  }
+
+  if (!payload?.sub || !payload?.email) {
+    return res.status(401).json({ error: 'Invalid Google token payload' })
+  }
+  if (payload.email_verified === false) {
+    return res.status(403).json({ error: 'Google account email is not verified' })
+  }
+
+  const userInfo = {
+    sub: payload.sub,
+    email: payload.email,
+    name: payload.name || payload.email,
+    picture: payload.picture || null,
+  }
 
   // Check if user exists by Google provider_id or email
   let userResult = await query(
@@ -170,7 +206,7 @@ router.post('/google', asyncHandler(async (req, res) => {
     [userInfo.sub, 'google']
   )
 
-  // Fallback: match by email (handles users who previously registered with email)
+  // Fallback: match by verified email (Google asserted email_verified)
   if (userResult.rows.length === 0) {
     userResult = await query('SELECT * FROM users WHERE email = $1', [userInfo.email])
     if (userResult.rows.length > 0) {

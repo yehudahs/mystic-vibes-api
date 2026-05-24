@@ -19,8 +19,13 @@ router.get('/health', async (req, res) => {
   }
 })
 
-// Test endpoint - no auth required
-router.post('/test/reading', async (req, res) => {
+// Test endpoint — was previously UNAUTHENTICATED, which let any visitor
+// burn Ollama compute on demand. Now requires a valid session and is
+// disabled outside development to remove the abuse vector entirely.
+router.post('/test/reading', authenticateToken, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'Not found' })
+  }
   try {
     const cards = [
       { name: 'The Fool', position: 'Past' },
@@ -29,8 +34,6 @@ router.post('/test/reading', async (req, res) => {
     ]
     const question = 'Test question for debugging'
     const spread = 'Three Card'
-
-    console.log('🧪 Test reading request received')
 
     const reading = await aiService.generateTarotReading(cards, question, spread)
 
@@ -344,38 +347,11 @@ router.post('/palm/reading', optionalAuth, async (req, res) => {
 })
 
 
-// Switch AI Provider (admin only)
-router.post('/provider/switch', authenticateToken, async (req, res) => {
-  try {
-    const { provider } = req.body
-
-    if (!provider) {
-      return res.status(400).json({
-        error: 'Provider is required'
-      })
-    }
-
-    const validProviders = ['ollama', 'openai', 'together']
-    if (!validProviders.includes(provider.toLowerCase())) {
-      return res.status(400).json({
-        error: `Invalid provider. Must be one of: ${validProviders.join(', ')}`
-      })
-    }
-
-    aiService.switchProvider(provider)
-
-    res.json({
-      success: true,
-      message: `Switched to ${provider} provider`,
-      currentProvider: provider
-    })
-  } catch (error) {
-    console.error('Provider switch error:', error)
-    res.status(500).json({
-      error: 'Failed to switch provider',
-      message: error.message
-    })
-  }
+// Switch AI Provider — comment said "admin only" but used only authenticateToken,
+// so any logged-in user could change the global provider for everyone.
+// Removed the runtime endpoint entirely; provider is set via env config at boot.
+router.post('/provider/switch', authenticateToken, (_req, res) => {
+  res.status(410).json({ error: 'Provider is now configured via environment, not at runtime' })
 })
 
 // Get Current Provider Info
@@ -478,10 +454,10 @@ router.post('/numerology/generate', optionalAuth, async (req, res) => {
   }
 })
 
-// ===== Ollama Monitoring Endpoints =====
+// ===== Ollama Monitoring Endpoints (auth required) =====
+// Previously unauthenticated — leaked per-user request history and stats.
 
-// Get Ollama request history
-router.get('/monitor/requests', (req, res) => {
+router.get('/monitor/requests', authenticateToken, (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50
     const requests = ollamaMonitor.getRequests(limit)
@@ -499,8 +475,7 @@ router.get('/monitor/requests', (req, res) => {
   }
 })
 
-// Get Ollama monitoring statistics
-router.get('/monitor/stats', (req, res) => {
+router.get('/monitor/stats', authenticateToken, (req, res) => {
   try {
     const stats = ollamaMonitor.getStats()
 
