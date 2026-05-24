@@ -39,6 +39,12 @@ import { startAllScheduledJobs } from './services/scheduledJobs.js'
 const app = express()
 const PORT = process.env.PORT || 3001
 
+// Trust the first proxy hop (Railway + Cloudflare) so req.ip and
+// X-Forwarded-For are honored correctly. express-rate-limit refuses to start
+// otherwise when XFF is present, and per-IP rate limits would key off the
+// proxy's IP if this wasn't set. "1" = trust exactly one hop; safer than `true`.
+app.set('trust proxy', 1)
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {

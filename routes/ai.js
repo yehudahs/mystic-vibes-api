@@ -374,7 +374,9 @@ router.get('/provider/current', async (req, res) => {
 // Generate Personalized Content (for welcome messages, etc.)
 router.post('/personalization/generate', optionalAuth, async (req, res) => {
   try {
-    const { prompt, model = 'llama3.2:3b' } = req.body
+    // Don't hardcode a model here — the Python service picks the model from
+    // OLLAMA_MODEL (AI-service/.env), which is the single source of truth.
+    const { prompt } = req.body
     const userId = req.user?.id
 
     console.log('✨ AI Personalization Request:', {
@@ -389,10 +391,10 @@ router.post('/personalization/generate', optionalAuth, async (req, res) => {
       })
     }
 
-    // Use the mystical content generator with personalization context
+    // Use the mystical content generator with personalization context.
+    // Python service picks the model from its env (OLLAMA_MODEL).
     const content = await aiService.generateMysticalContent('spiritual-guidance', {
       prompt: prompt,
-      model: model
     })
 
     console.log('✨ AI Personalization Response:', {

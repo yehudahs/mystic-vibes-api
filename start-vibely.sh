@@ -28,6 +28,49 @@ echo "🚀 Starting Vibely AI Complete Stack..."
 echo "==============================================="
 echo ""
 
+# ── Validate required env vars before doing anything heavy ───────────────────
+# Catches the common "service crashes on boot, you see a vague curl timeout 60s
+# later" failure mode for the security-required vars.
+echo "🔐 Validating env files..."
+require_env_key() {
+  local file="$1" key="$2"
+  if [ ! -f "$file" ]; then
+    echo -e "   ${RED}❌ Missing env file: $file${NC}"
+    return 1
+  fi
+  if ! grep -qE "^${key}=.+" "$file"; then
+    echo -e "   ${RED}❌ $file is missing required key: $key${NC}"
+    return 1
+  fi
+}
+ENV_OK=1
+require_env_key "$SCRIPT_DIR/mystic-vibes-api/.env" "JWT_SECRET"       || ENV_OK=0
+require_env_key "$SCRIPT_DIR/mystic-vibes-api/.env" "AI_SERVICES"      || ENV_OK=0
+require_env_key "$SCRIPT_DIR/mystic-vibes-api/.env" "AI_SERVICES_KEY"  || ENV_OK=0
+require_env_key "$SCRIPT_DIR/AI-service/.env"      "SERVICE_AUTH_KEY" || ENV_OK=0
+if [ "$ENV_OK" -ne 1 ]; then
+  echo -e "   ${RED}❌ Fix the missing env vars above before starting.${NC}"
+  echo -e "   ${YELLOW}💡 Generate secrets with: openssl rand -hex 32${NC}"
+  echo -e "   ${YELLOW}💡 AI_SERVICES_KEY (in api/.env) must match SERVICE_AUTH_KEY (in AI-service/.env)${NC}"
+  exit 1
+fi
+# Also assert the two shared secrets actually match, or the gateway returns 401.
+API_KEY=$(grep -E '^AI_SERVICES_KEY=' "$SCRIPT_DIR/mystic-vibes-api/.env" | head -1 | cut -d= -f2-)
+SVC_KEY=$(grep -E '^SERVICE_AUTH_KEY='  "$SCRIPT_DIR/AI-service/.env"      | head -1 | cut -d= -f2-)
+if [ "$API_KEY" != "$SVC_KEY" ]; then
+  echo -e "   ${RED}❌ AI_SERVICES_KEY (api) != SERVICE_AUTH_KEY (ai-service) — gateway will 401 every reading.${NC}"
+  exit 1
+fi
+echo "   ✅ env files OK and shared secrets match"
+echo ""
+
+# Source the AI-service .env so OLLAMA_MODEL (and friends) come from a single
+# source of truth — same value the Node gateway/Python service will use.
+# Subshell so the exported PORT (=11434, the gateway's port) doesn't leak into
+# the backend's child process and make it try to listen on the gateway's port.
+OLLAMA_MODEL=$(set -a; . "$SCRIPT_DIR/AI-service/.env"; echo "$OLLAMA_MODEL")
+export OLLAMA_MODEL
+
 # Ensure logrotate is installed and launchd job is registered
 LOGROTATE_CONF="$SCRIPT_DIR/mystic-vibes-api/logrotate/vibely.conf"
 LOGROTATE_PLIST="$HOME/Library/LaunchAgents/com.vibely.logrotate.plist"
@@ -38,12 +81,14 @@ fi
 if [ ! -f "$LOGROTATE_PLIST" ]; then
   echo "📋 Registering logrotate launchd job..."
   cp "$SCRIPT_DIR/mystic-vibes-api/logrotate/com.vibely.logrotate.plist" "$LOGROTATE_PLIST"
-  launchctl load "$LOGROTATE_PLIST"
+  # `launchctl load` is deprecated on macOS 12+; use the modern bootstrap form.
+  launchctl bootstrap "gui/$(id -u)" "$LOGROTATE_PLIST" 2>/dev/null \
+    || launchctl load "$LOGROTATE_PLIST"
 fi
 
 # Clean up any existing processes
 echo "0️⃣ Cleaning up existing processes..."
-pkill ollama 2>/dev/null || true
+pkill -x ollama 2>/dev/null || true   # exact match — don't kill ollama-cli, etc.
 lsof -ti:11434 | xargs kill -9 2>/dev/null || true  # AI Service Gateway
 lsof -ti:11435 | xargs kill -9 2>/dev/null || true  # Ollama
 lsof -ti:5001  | xargs kill -9 2>/dev/null || true  # Python AI Service
@@ -175,7 +220,7 @@ fi
 if pgrep -x "ollama" > /dev/null;
 then
   echo "   ⚠️  Ollama already running, restarting..."
-  pkill ollama
+  pkill -x ollama
   sleep 2
 fi
 
@@ -194,7 +239,10 @@ fi
 
 echo "   ✅ Ollama running on http://localhost:11435"
 
-# Pull required model if not already downloaded
+# Pull required model if not already downloaded.
+# OLLAMA_MODEL was sourced from AI-service/.env above (the single source of
+# truth) — same value the Python service will request from Ollama, so we
+# pull exactly what's needed. The fallback only matters if .env is missing.
 REQUIRED_MODEL="${OLLAMA_MODEL:-qwen2.5:7b}"
 if ! OLLAMA_HOST=127.0.0.1:11435 ollama list 2>/dev/null | grep -q "$REQUIRED_MODEL"; then
   echo "   📥 Downloading model $REQUIRED_MODEL (this may take a while)..."
@@ -238,7 +286,11 @@ if [ ! -d "node_modules" ]; then
   npm install > /tmp/vibely-ai-npm-install.log 2>&1
 fi
 
-npm start > /tmp/vibely-ai-service.log 2>&1 &
+# Run node directly instead of `npm start` — `npm start` wraps the process,
+# so $! points at the npm wrapper. Killing that doesn't reliably stop the
+# child Node server, leaving port 11434 orphaned. Direct exec gives us the
+# real PID for stop-vibely.sh.
+node src/node_service/server.js > /tmp/vibely-ai-service.log 2>&1 &
 AI_SERVICE_PID=$!
 echo "   ⏳ AI Service starting (PID: $AI_SERVICE_PID)..."
 sleep 3

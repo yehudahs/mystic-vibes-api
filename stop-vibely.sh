@@ -55,7 +55,7 @@ fi
 lsof -ti:5001 | xargs kill 2>/dev/null && echo "   ✅ Python AI Service stopped" || true
 echo ""
 
-# Stop Ollama
+# Stop Ollama (parent + runner subprocess)
 if [ -f /tmp/vibely-ollama.pid ]; then
   OLLAMA_PID=$(cat /tmp/vibely-ollama.pid)
   echo "🧠 Stopping Ollama (PID: $OLLAMA_PID)..."
@@ -63,8 +63,13 @@ if [ -f /tmp/vibely-ollama.pid ]; then
   rm /tmp/vibely-ollama.pid
 else
   echo "🧠 Stopping Ollama..."
-  pkill ollama 2>/dev/null && echo "   ✅ Ollama stopped" || echo "   ⚠️  Ollama not running"
+  pkill -x ollama 2>/dev/null && echo "   ✅ Ollama stopped" || echo "   ⚠️  Ollama not running"
 fi
+# The runner subprocess (loaded model in GPU memory) has its own argv[0] and
+# survives `pkill ollama`. Free GPU memory by killing it explicitly.
+pkill -f "ollama runner" 2>/dev/null && echo "   ✅ Ollama runner stopped" || true
+# Also free 11435 in case anything leaked
+lsof -ti:11435 | xargs kill 2>/dev/null || true
 echo ""
 
 # Optionally stop database
