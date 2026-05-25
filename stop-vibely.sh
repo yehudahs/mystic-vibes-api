@@ -27,6 +27,10 @@ else
   echo "🔧 Stopping Backend..."
   lsof -ti:3001 | xargs kill 2>/dev/null && echo "   ✅ Backend stopped" || echo "   ⚠️  Backend not running"
 fi
+# Also kill any orphaned nodemon — it survives a crash of its child and then
+# auto-respawns the API on whatever PORT it had in env (which has bitten us:
+# orphan nodemon respawning the API on port 11434 and intercepting tunnel traffic).
+pkill -f "nodemon index.js" 2>/dev/null && echo "   ✅ Killed orphaned nodemon(s)" || true
 echo ""
 
 # Stop Cloudflare Tunnel
