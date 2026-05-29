@@ -1,0 +1,36 @@
+name: Sentry Triage
+
+# Runs daily and surfaces NEW unresolved Sentry issues from the backend project
+# as GitHub issues in this repo. Does NOT write code — it only triages, so a
+# human (or Claude in a session) can decide whether each one warrants a fix.
+#
+# Schedule: 09:08 ET (13:08 UTC) — one minute offset from the frontend repo's
+# 13:07 to spread load across the two cron firings.
+#
+# Manual trigger: workflow_dispatch (run from the GH Actions tab any time).
+
+on:
+  schedule:
+    - cron: '8 13 * * *'
+  workflow_dispatch:
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Node 20 is being deprecated on GH runners June 2nd, 2026.
+          node-version: '22'
+      - name: Triage new Sentry issues
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          SENTRY_ORG: mystic-vibes
+          SENTRY_PROJECT: mystic-vibes-backend
+        run: node .github/scripts/sentry-triage.mjs
