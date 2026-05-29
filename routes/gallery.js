@@ -14,7 +14,7 @@ router.get('/', asyncHandler(async (req, res) => {
     where = `WHERE reading_type = $1`
   }
   const result = await query(
-    `SELECT id, slug, reading_type, title, description, display_order, featured,
+    `SELECT id, slug, reading_type, question, title, description, display_order, featured,
             interpretation, reading_data, input_image_url, ai_provider, ai_model,
             generated_at, updated_at
        FROM gallery_readings
@@ -29,7 +29,7 @@ router.get('/', asyncHandler(async (req, res) => {
 router.get('/:slug', asyncHandler(async (req, res) => {
   const { slug } = req.params
   const result = await query(
-    `SELECT id, slug, reading_type, title, description, display_order, featured,
+    `SELECT id, slug, reading_type, question, title, description, display_order, featured,
             interpretation, reading_data, input_image_url, ai_provider, ai_model,
             generated_at, updated_at
        FROM gallery_readings
