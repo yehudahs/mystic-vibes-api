@@ -50,6 +50,32 @@ const tarotCards = [
   { id: 'two-pentacles', name: 'Two of Pentacles', suit: 'pentacles', number: 2, keywords: ['multiple priorities', 'time management', 'prioritization'], upright_meaning: 'Multiple priorities, time management, prioritization', reversed_meaning: 'Over-committed, disorganisation, reprioritisation' }
 ]
 
+// Apply every sequential migration in migrations/ in alphabetical order.
+// Mirrors the loop in start-vibely.sh so local and Railway stay aligned.
+// All migrations are written to be idempotent (CREATE/ALTER … IF [NOT] EXISTS),
+// so re-running on every deploy is safe.
+async function applyMigrations() {
+  const migrationsDir = path.join(__dirname, 'migrations')
+  if (!fs.existsSync(migrationsDir)) return
+
+  const files = fs.readdirSync(migrationsDir)
+    .filter(f => f.endsWith('.sql'))
+    .sort()
+
+  console.log(`🔄 Applying ${files.length} migration file(s) from migrations/...`)
+  for (const filename of files) {
+    const sql = fs.readFileSync(path.join(migrationsDir, filename), 'utf8')
+    try {
+      await pool.query(sql)
+      console.log(`   ✅ migration: ${filename}`)
+    } catch (err) {
+      // Idempotent re-runs can still produce warnings (e.g. NOTICE for IF EXISTS);
+      // a real error should surface but not abort the rest of the migrations.
+      console.log(`   ⚠️  migration ${filename}: ${err.message}`)
+    }
+  }
+}
+
 async function setupDatabase() {
   console.log('🚀 Starting Vibely AI database setup...')
 
@@ -68,6 +94,9 @@ async function setupDatabase() {
     console.log('📋 Creating database schema...')
     await pool.query(schema)
     console.log('✅ Database schema created successfully')
+
+    // Apply sequential migrations after the base schema.
+    await applyMigrations()
 
     // Check and add subscription columns if they don't exist (for Railway compatibility)
     console.log('🔄 Ensuring subscription columns exist...')
@@ -140,6 +169,9 @@ async function setupDatabase() {
 
       // Still run the subscription columns check and tarot cards insert
       try {
+        // Apply sequential migrations even when the base schema is already present.
+        await applyMigrations()
+
         console.log('🔄 Ensuring subscription columns exist...')
         const subscriptionColumns = [
           'ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)',
