@@ -22,10 +22,16 @@ router.get('/', asyncHandler(async (req, res) => {
     params.push(type)
     where = `WHERE reading_type = $1`
   }
+  // We DO return the full interpretation here. It's the dominant text field
+  // (~6KB per row × 210 = ~1.5MB total) but the article body is what the
+  // modal renders immediately on open; truncating it makes the modal show
+  // a cut-off paragraph that then pops to full text when bySlug resolves.
+  // What we still strip is `reading_data` — the palm CV blobs (overlay
+  // images base64'd into jsonb, up to 4MB per palm row) which the modal
+  // only needs after the user clicks a palm card.
   const result = await query(
     `SELECT id, slug, reading_type, question, title, description, display_order, featured,
-            LEFT(interpretation, 200) AS interpretation,
-            input_image_url, generated_at,
+            interpretation, input_image_url, generated_at,
             jsonb_build_object(
               'og_image_url', reading_data->>'og_image_url'
             ) AS reading_data
