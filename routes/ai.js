@@ -269,10 +269,10 @@ router.post('/palm/pipeline', optionalAuth, async (req, res) => {
 // Interpret a single palm feature via Ollama
 router.post('/palm/interpret', optionalAuth, async (req, res) => {
   try {
-    const { feature_key, feature_data, question, handedness } = req.body
+    const { feature_key, feature_data, question, handedness, reading_id } = req.body
     if (!feature_key) return res.status(400).json({ error: 'feature_key is required' })
 
-    const result = await aiService.interpretPalmFeature(feature_key, feature_data, question, handedness)
+    const result = await aiService.interpretPalmFeature(feature_key, feature_data, question, handedness, reading_id)
     res.json({
       success: true,
       feature_key,

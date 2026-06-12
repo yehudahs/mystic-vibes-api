@@ -75,12 +75,13 @@ class AIService {
     return response.data
   }
 
-  async interpretPalmFeature(featureKey, featureData, question = null, handedness = null) {
+  async interpretPalmFeature(featureKey, featureData, question = null, handedness = null, readingId = null) {
     const response = await axios.post(`${this.getUrl()}/palm/interpret`, {
       feature_key: featureKey,
       feature_data: featureData,
       question,
       handedness,
+      reading_id: readingId,
     }, { timeout: 660000, headers: this.getAuthHeaders() })
     if (!response.data.success) throw new Error(response.data.error || 'Interpret failed')
     return response.data

@@ -224,7 +224,10 @@ then
   sleep 2
 fi
 
-OLLAMA_HOST=127.0.0.1:11435 OLLAMA_NUM_PARALLEL=7 OLLAMA_KEEP_ALIVE=24h ollama serve > /tmp/vibely-ollama.log 2>&1 &
+# NUM_PARALLEL=1: the AI-service fair scheduler already serializes LLM calls to
+# one-at-a-time so the first reading returns at full GPU speed and concurrent
+# users interleave. Keep Ollama at 1 so it never splits the GPU across requests.
+OLLAMA_HOST=127.0.0.1:11435 OLLAMA_NUM_PARALLEL=1 OLLAMA_KEEP_ALIVE=24h ollama serve > /tmp/vibely-ollama.log 2>&1 &
 OLLAMA_PID=$!
 echo "   ⏳ Ollama starting on port 11435 (PID: $OLLAMA_PID)..."
 sleep 3
@@ -349,7 +352,10 @@ fi
 
 echo "   📦 Installing backend dependencies..."
 npm install --silent
-npm run dev > /tmp/vibely-backend.log 2>&1 &
+# Pin PORT explicitly: if the calling shell has PORT set (e.g. someone sourced
+# AI-service/.env, where PORT=11434), the backend would inherit it and bind the
+# gateway's port — hijacking the tunnel. Never trust the caller's environment.
+PORT=3001 npm run dev > /tmp/vibely-backend.log 2>&1 &
 BACKEND_PID=$!
 echo "   ⏳ Backend starting (PID: $BACKEND_PID)..."
 sleep 5
