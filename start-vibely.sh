@@ -89,6 +89,12 @@ fi
 # Clean up any existing processes
 echo "0️⃣ Cleaning up existing processes..."
 pkill -x ollama 2>/dev/null || true   # exact match — don't kill ollama-cli, etc.
+# Kill stack processes by name too — port-only kills miss orphaned nodemon
+# children that aren't bound at cleanup time, which pile up across runs and
+# create "ghost" backends squatting on the gateway's port (11434). See README.
+pkill -f "mystic-vibes-api/node_modules/.bin/nodemon" 2>/dev/null || true  # backend (all stale copies)
+pkill -f "src/node_service/server.js" 2>/dev/null || true                  # AI gateway
+pkill -f "mystic-vibes-ai/node_modules/.bin/vite" 2>/dev/null || true      # frontend
 lsof -ti:11434 | xargs kill -9 2>/dev/null || true  # AI Service Gateway
 lsof -ti:11435 | xargs kill -9 2>/dev/null || true  # Ollama
 lsof -ti:5001  | xargs kill -9 2>/dev/null || true  # Python AI Service
