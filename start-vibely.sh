@@ -24,6 +24,30 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# ── Production-host guard ────────────────────────────────────────────────────
+# This stack binds FIXED ports (11434/5001/11435) and the live `mystic-ai`
+# cloudflared tunnel. On a machine with multiple clones of this repo, whichever
+# clone runs this script LAST silently becomes production — and if that clone
+# has stale code or is missing the cloud API keys, live palm readings degrade
+# (e.g. fall back to slow local Ollama). That actually happened.
+#
+# So only the folder carrying the `.production-host` marker (a gitignored,
+# host-local file at the monorepo root) may start the shared stack. Other clones
+# refuse. To intentionally run anyway (e.g. dev testing on other ports), set
+# FORCE_START=1.
+if [ ! -f "$SCRIPT_DIR/.production-host" ] && [ "${FORCE_START:-0}" != "1" ]; then
+  echo -e "${RED}✋ Refusing to start: this folder is NOT the designated production host.${NC}"
+  echo -e "${YELLOW}   The live stack must run from the folder containing a .production-host marker,"
+  echo -e "   to avoid two clones fighting over the same ports + tunnel.${NC}"
+  echo ""
+  echo -e "   This folder: ${SCRIPT_DIR}"
+  echo -e "   To make THIS folder the production host:"
+  echo -e "       ${GREEN}touch \"$SCRIPT_DIR/.production-host\"${NC}"
+  echo -e "   To start anyway without claiming production (advanced):"
+  echo -e "       ${GREEN}FORCE_START=1 $0${NC}"
+  exit 1
+fi
+
 echo "🚀 Starting Vibely AI Complete Stack..."
 echo "==============================================="
 echo ""
