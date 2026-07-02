@@ -9,12 +9,6 @@ import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import morgan from 'morgan'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
 // Route handlers
 import authRoutes from './routes/auth.js'
 import userRoutes from './routes/users.js'
@@ -138,10 +132,11 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }))
 // Logging
 app.use(morgan('combined'))
 
-// Serve static files in production/staging
-if (process.env.NODE_ENV !== 'development') {
-  app.use(express.static(path.join(__dirname, '../dist')))
-}
+// robots.txt — tells crawlers not to index the API domain
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain')
+  res.send('User-agent: *\nDisallow: /\n')
+})
 
 // Health check endpoints (both /health and /api/health)
 const healthResponse = (req, res) => {
@@ -178,33 +173,20 @@ app.post('/api/webhook', (req, res, next) => {
 app.use('/api/testing', testingRoutes)
 app.use('/api/ai', aiRoutes)
 
-// Serve React app for all non-API routes in production/staging
-if (process.env.NODE_ENV !== 'development') {
-  // Serve React app for routes that are not API or static files
-  app.get(/^(?!\/api).*/, (req, res, next) => {
-    // If it's a request for a file extension, let it 404
-    if (req.url.includes('.') && !req.url.endsWith('/')) {
-      return next()
-    }
-    res.sendFile(path.join(__dirname, '../dist/index.html'))
+// 404 handler — API is standalone; frontend is a separate service
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    error: 'API route not found',
+    path: req.originalUrl
   })
-  
-  // 404 handler for API routes
-  app.use('/api', (req, res) => {
-    res.status(404).json({ 
-      error: 'API route not found',
-      path: req.originalUrl 
-    })
+})
+
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not found — the Mystic Vibes app is at https://mystic-vibes.com',
+    path: req.originalUrl
   })
-} else {
-  // 404 handler for development
-  app.use((req, res) => {
-    res.status(404).json({ 
-      error: 'Route not found',
-      path: req.originalUrl 
-    })
-  })
-}
+})
 
 // Sentry error handler (must be before other error middleware)
 Sentry.setupExpressErrorHandler(app)
