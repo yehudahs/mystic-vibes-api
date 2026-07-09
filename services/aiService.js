@@ -110,6 +110,21 @@ class AIService {
     }
   }
 
+  async generatePrintTagline(readingType, context) {
+    const prompts = {
+      tarot: `You drew ${context.cards?.join(', ')}. Give exactly 4 funny, mystical, punchy words as a print tagline. No punctuation. Examples: "Stars don't lie though" or "Cards said trust chaos". Only 4 words.`,
+      palm: `Your palm shows ${context.features?.join(', ')}. Give exactly 4 funny, mystical words as a print tagline. No punctuation. Only 4 words.`,
+      numerology: `Your life path number is ${context.lifePathNumber}. Give exactly 4 funny, mystical words as a print tagline. No punctuation. Examples: "Numbers never lie bro" or "Math confirms you weird". Only 4 words.`,
+      astrology: `You are ${context.sign}. Give exactly 4 funny, mystical words as a print tagline for a ${context.sign}. No punctuation. Only 4 words.`,
+    }
+    const prompt = prompts[readingType] || `Give exactly 4 funny mystical words for a print tagline. No punctuation.`
+    const data = await this.call('/greeting', { type: 'spiritual-guidance', context: { prompt } })
+    const raw = (data.reading || '').trim().replace(/[".]/g, '').trim()
+    // Take first 4 words only
+    const words = raw.split(/\s+/).slice(0, 4).join(' ')
+    return words || 'The stars know all'
+  }
+
   async healthCheck() {
     try {
       await axios.get(`${this.getUrl()}/health`, { timeout: 5000 })

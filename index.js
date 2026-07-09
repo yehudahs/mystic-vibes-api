@@ -23,6 +23,7 @@ import aiStatusRoutes from './routes/ai-status.js'
 import supportRoutes from './routes/support.js'
 import versionRoutes from './routes/version.js'
 import galleryRoutes from './routes/gallery.js'
+import printfulRoutes from './routes/printful.js'
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js'
@@ -162,7 +163,8 @@ app.use('/api/stripe', stripeRoutes)
 app.use('/api/ai-status', aiStatusRoutes)
 app.use('/api/support', optionalAuth, supportRoutes)
 app.use('/api/version', versionRoutes)
-app.use('/api/gallery', galleryRoutes)  // public — no auth needed
+app.use('/api/gallery', galleryRoutes)
+app.use('/api/printful', printfulRoutes)  // public — no auth needed
 
 // Direct webhook route for Stripe Dashboard compatibility - redirect to stripe webhook
 app.post('/api/webhook', (req, res, next) => {

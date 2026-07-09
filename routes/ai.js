@@ -347,6 +347,19 @@ router.post('/palm/reading', optionalAuth, async (req, res) => {
 })
 
 
+// Generate funny print tagline
+router.post('/print-tagline', optionalAuth, async (req, res) => {
+  try {
+    const { readingType, context } = req.body
+    if (!readingType) return res.status(400).json({ error: 'readingType is required' })
+    const tagline = await aiService.generatePrintTagline(readingType, context || {})
+    res.json({ success: true, tagline })
+  } catch (err) {
+    console.error('Print tagline error:', err.message)
+    res.json({ success: true, tagline: 'The stars know all' }) // graceful fallback
+  }
+})
+
 // Switch AI Provider — comment said "admin only" but used only authenticateToken,
 // so any logged-in user could change the global provider for everyone.
 // Removed the runtime endpoint entirely; provider is set via env config at boot.
