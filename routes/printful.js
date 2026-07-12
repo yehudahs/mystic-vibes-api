@@ -1,9 +1,14 @@
 import express from 'express'
 import axios from 'axios'
-import FormData from 'form-data'
 import Stripe from 'stripe'
+import { writeFileSync, mkdirSync } from 'fs'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
+import { randomUUID } from 'crypto'
 import { authenticateToken, optionalAuth } from '../middleware/auth.js'
 import { query } from '../config/database.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const router = express.Router()
 
@@ -12,6 +17,7 @@ const headers = () => ({
   Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
   'Content-Type': 'application/json',
 })
+const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3001').replace(/\/$/, '')
 
 let stripe = null
 const getStripe = () => {
@@ -22,6 +28,8 @@ const getStripe = () => {
 }
 
 // Curated product catalog with retail prices (USD cents)
+// printArea: dimensions from GET /mockup-generator/printfiles/{id} (first printfile)
+// position: where to place our square design within the print area (centered)
 const PRODUCTS = [
   {
     id: 71,
@@ -33,6 +41,8 @@ const PRODUCTS = [
     image: 'https://files.cdn.printful.com/o/upload/product-catalog-img/20/2079a3ee4cc472ad952fe16654f274cd_l',
     popularColors: ['Black', 'White', 'Navy'],
     popularSizes: ['S', 'M', 'L', 'XL', '2XL'],
+    printfulUrl: 'https://www.printful.com/custom/t-shirts',
+    mockupPosition: { area_width: 1800, area_height: 2400, width: 1800, height: 1800, top: 300, left: 0 },
   },
   {
     id: 380,
@@ -41,53 +51,11 @@ const PRODUCTS = [
     description: 'Premium Pullover Hoodie',
     placement: 'front',
     retailCents: 5499,
-    image: 'https://files.cdn.printful.com/o/upload/product-catalog-img/b3/b3dc1a7059e5e2fa025b02c3d8fd6765_l',
+    image: 'https://files.cdn.printful.com/o/upload/product-catalog-img/0e/0e62ae87da7d32dfb60d6dadc3744346_l',
     popularColors: ['Black', 'White', 'Navy'],
     popularSizes: ['S', 'M', 'L', 'XL', '2XL'],
-  },
-  {
-    id: 19,
-    name: 'Mug',
-    emoji: '☕',
-    description: 'White Glossy Mug',
-    placement: 'front',
-    retailCents: 1899,
-    image: 'https://files.cdn.printful.com/o/upload/product-catalog-img/d0/d09aa3e6c86d79b2bd2fb7af7b87f9d1_l',
-    popularColors: ['White'],
-    popularSizes: ['11 oz', '15 oz'],
-  },
-  {
-    id: 300,
-    name: 'Black Mug',
-    emoji: '🖤',
-    description: 'Black Glossy Mug',
-    placement: 'front',
-    retailCents: 1999,
-    image: 'https://files.cdn.printful.com/o/upload/product-catalog-img/c1/c1be5a16dab1a8d5d5e4d42b95dcef81_l',
-    popularColors: ['Black'],
-    popularSizes: ['11 oz', '15 oz'],
-  },
-  {
-    id: 1,
-    name: 'Poster',
-    emoji: '🖼️',
-    description: 'Enhanced Matte Paper Poster',
-    placement: 'front',
-    retailCents: 2499,
-    image: 'https://files.cdn.printful.com/o/upload/product-catalog-img/37/374cae8c6b92a14e61a75c2c4b77ee19_l',
-    popularColors: ['White'],
-    popularSizes: ['A4 (8.3×11.7")', 'A3 (11.7×16.5")', 'A2 (16.5×23.4")'],
-  },
-  {
-    id: 3,
-    name: 'Canvas Print',
-    emoji: '🎨',
-    description: 'Stretched Canvas',
-    placement: 'front',
-    retailCents: 4499,
-    image: 'https://files.cdn.printful.com/o/upload/product-catalog-img/99/998d5b2f4dc81f39df044ff0dbf3498b_l',
-    popularColors: ['White'],
-    popularSizes: ['10×10"', '11×14"', '12×18"'],
+    printfulUrl: 'https://www.printful.com/custom/hoodies',
+    mockupPosition: { area_width: 1800, area_height: 2400, width: 1800, height: 1800, top: 300, left: 0 },
   },
 ]
 
@@ -148,85 +116,265 @@ function extractSize(name) {
   return sizeSimple ? sizeSimple[1] : name
 }
 
-// POST /api/printful/upload — upload base64 PNG design, return file info
+// POST /api/printful/upload — save base64 PNG locally, upload to Printful via public URL
+// In production (Railway), backend URL is public so Printful can download directly.
+// In local dev, falls back to a temporary public file host (0x0.st) so Printful can reach the file.
 router.post('/upload', optionalAuth, async (req, res) => {
   try {
     const { imageBase64, filename = 'mystic-reading.png' } = req.body
     if (!imageBase64) return res.status(400).json({ error: 'imageBase64 is required' })
 
+    // Detect MIME type from data URL prefix; default to jpeg
+    const mimeMatch = imageBase64.match(/^data:image\/(\w+);base64,/)
+    const ext = mimeMatch?.[1] === 'png' ? 'png' : 'jpg'
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(base64Data, 'base64')
 
-    const form = new FormData()
-    form.append('file', buffer, { filename, contentType: 'image/png' })
-    form.append('type', 'default')
+    // Save to local temp directory
+    const uuid = randomUUID()
+    const tempDir = join(__dirname, '..', 'public', 'temp-designs')
+    mkdirSync(tempDir, { recursive: true })
+    writeFileSync(join(tempDir, `${uuid}.${ext}`), buffer)
 
-    const { data } = await axios.post(`${PRINTFUL_API}/files`, form, {
-      headers: {
-        Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
-        ...form.getHeaders(),
+    // Build the primary public URL (works in production)
+    let publicUrl = `${backendUrl}/temp-designs/${uuid}.${ext}`
+
+    // Helper: try uploading to Printful with a given URL
+    const uploadToPrintful = async (url) => {
+      const { data } = await axios.post(`${PRINTFUL_API}/files`, {
+        url,
+        filename,
+        type: 'default',
+        visible: false,
+      }, {
+        headers: {
+          Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+      })
+      return data.result
+    }
+
+    let printfulResult = null
+
+    // Fallback public file hosts tried in order when the backend URL isn't reachable (local dev).
+    // Each host returns a direct-download URL that Printful can fetch.
+    const mimeType = ext === 'jpg' ? 'image/jpeg' : 'image/png'
+    const fallbackHosts = [
+      {
+        name: 'catbox.moe',
+        upload: async () => {
+          const form = new FormData()
+          form.append('reqtype', 'fileupload')
+          form.append('fileToUpload', new Blob([buffer], { type: mimeType }), filename)
+          const res = await fetch('https://catbox.moe/user/api.php', {
+            method: 'POST', body: form, signal: AbortSignal.timeout(30000),
+          })
+          const url = (await res.text()).trim()
+          if (!url.startsWith('https://files.catbox.moe/')) throw new Error(`catbox.moe returned: "${url}"`)
+          return url
+        },
       },
-      maxBodyLength: Infinity,
-    })
+      {
+        name: '0x0.st',
+        upload: async () => {
+          const form = new FormData()
+          form.append('file', new Blob([buffer], { type: mimeType }), filename)
+          const res = await fetch('https://0x0.st', {
+            method: 'POST', body: form, signal: AbortSignal.timeout(30000),
+          })
+          const url = (await res.text()).trim()
+          if (!url.startsWith('https://0x0.st/')) throw new Error(`0x0.st returned: "${url}"`)
+          return url
+        },
+      },
+      {
+        name: 'litterbox.catbox.moe',
+        upload: async () => {
+          const form = new FormData()
+          form.append('reqtype', 'fileupload')
+          form.append('time', '24h')
+          form.append('fileToUpload', new Blob([buffer], { type: mimeType }), filename)
+          const res = await fetch('https://litterbox.catbox.moe/resources/internals/api.php', {
+            method: 'POST', body: form, signal: AbortSignal.timeout(30000),
+          })
+          const url = (await res.text()).trim()
+          if (!url.startsWith('https://litter.catbox.moe/')) throw new Error(`litterbox returned: "${url}"`)
+          return url
+        },
+      },
+    ]
+
+    // First attempt: use the backend's own public URL (works in production on Railway)
+    try {
+      printfulResult = await uploadToPrintful(publicUrl)
+    } catch (firstErr) {
+      const errMsg = String(firstErr.response?.data?.result || firstErr.message)
+      console.warn(`[upload] Backend URL failed: ${errMsg}`)
+
+      // Try each fallback host in order until one succeeds
+      let uploaded = false
+      for (const host of fallbackHosts) {
+        try {
+          console.log(`[upload] Trying fallback: ${host.name}...`)
+          const hostUrl = await host.upload()
+          publicUrl = hostUrl
+          console.log(`[upload] ${host.name} success: ${hostUrl}`)
+          printfulResult = await uploadToPrintful(publicUrl)
+          uploaded = true
+          break
+        } catch (hostErr) {
+          console.warn(`[upload] ${host.name} failed: ${hostErr.message}`)
+        }
+      }
+      if (!uploaded) {
+        throw new Error('All public fallback hosts failed — cannot upload design to Printful in local dev')
+      }
+    }
 
     res.json({
       success: true,
-      fileId: data.result.id,
-      fileUrl: data.result.url,
+      fileId: String(printfulResult.id),
+      fileUrl: publicUrl,  // use the public host URL (catbox/backend), not printful.url which is just the input URL
     })
   } catch (err) {
     console.error('Printful upload error:', err.response?.data || err.message)
-    res.status(500).json({ error: 'Failed to upload design to Printful' })
+    res.status(500).json({ error: 'Failed to upload design to Printful', detail: err.response?.data?.result || err.message })
   }
 })
 
 // POST /api/printful/mockup — generate mockup for product+variant+file
 router.post('/mockup', optionalAuth, async (req, res) => {
   try {
-    const { productId, variantIds, fileUrl, placement = 'front' } = req.body
+    const { productId, variantIds, fileUrl } = req.body
     if (!productId || !variantIds || !fileUrl) {
       return res.status(400).json({ error: 'productId, variantIds, fileUrl are required' })
     }
 
-    // Create mockup task
-    const taskRes = await axios.post(
-      `${PRINTFUL_API}/mockup-generator/create-task/${productId}`,
-      {
-        variant_ids: variantIds,
-        files: [{ placement, image_url: fileUrl }],
-        format: 'jpg',
-      },
-      { headers: headers() }
-    )
-    const taskKey = taskRes.data.result.task_key
+    const product = PRODUCTS.find(p => p.id === productId)
+    const placement = product?.placement || 'front'
+    let position = product?.mockupPosition || null
 
-    // Poll for result (max 45s)
-    for (let i = 0; i < 15; i++) {
+    // For products without a fixed mockupPosition (e.g. mugs where 11oz vs 15oz have
+    // different printfile heights), query Printful's printfiles API to get the exact
+    // dimensions for the selected variant and construct a centered square position.
+    if (!position && variantIds?.length > 0) {
+      try {
+        const { data: pfData } = await axios.get(
+          `${PRINTFUL_API}/mockup-generator/printfiles/${productId}`,
+          { headers: headers(), timeout: 10000 }
+        )
+        const pfResult = pfData.result
+        const variantId = variantIds[0]
+        const variantPf = pfResult.variant_printfiles?.find(vp => vp.variant_id === variantId)
+        const pfId = variantPf?.placements?.[placement]
+        const printfile = pfResult.printfiles?.find(p => p.printfile_id === pfId)
+
+        if (printfile?.width && printfile?.height) {
+          const aW = printfile.width
+          const aH = printfile.height
+          // Square design centered: size = area height (or half width, whichever is smaller)
+          const side = Math.min(aH, Math.floor(aW / 2))
+          position = {
+            area_width: aW,
+            area_height: aH,
+            width: side,
+            height: side,
+            top: Math.floor((aH - side) / 2),
+            left: Math.floor((aW - side) / 2),
+          }
+          console.log(`[mockup] dynamic position for product=${productId} variant=${variantId}:`, position)
+        }
+      } catch (pfErr) {
+        console.warn('[mockup] printfile lookup failed, using auto-placement:', pfErr.message)
+      }
+    }
+
+    // Use image_url — Printful files uploaded with type:'default' can't be referenced by id
+    // in the mockup generator. fileUrl is already a public CDN URL (catbox.moe in dev,
+    // or the Railway backend URL in production).
+    const fileEntry = { placement, image_url: fileUrl }
+    if (position) fileEntry.position = position
+
+    console.log(`[mockup] product=${productId} variants=${variantIds} fileUrl=${fileUrl?.substring(0,60)}`)
+
+    // Create mockup task — auto-retry once on Printful rate limit (429).
+    // Printful throttles after ~2 rapid task creations; error message includes the wait time.
+    let taskRes
+    for (let attempt = 0; attempt <= 1; attempt++) {
+      try {
+        taskRes = await axios.post(
+          `${PRINTFUL_API}/mockup-generator/create-task/${productId}`,
+          { variant_ids: variantIds, files: [fileEntry], format: 'jpg' },
+          { headers: headers() }
+        )
+        break
+      } catch (createErr) {
+        const detail = String(createErr.response?.data?.result || createErr.message)
+        const waitMatch = detail.match(/after (\d+) seconds?/i)
+        if (waitMatch && attempt === 0) {
+          const waitMs = (parseInt(waitMatch[1]) + 3) * 1000
+          console.log(`[mockup] rate limited — waiting ${waitMs / 1000}s before retry`)
+          await new Promise(r => setTimeout(r, waitMs))
+        } else {
+          throw createErr
+        }
+      }
+    }
+    const taskKey = taskRes.data.result.task_key
+    console.log(`[mockup] task created: ${taskKey}`)
+
+    // Poll for result (max 60s)
+    for (let i = 0; i < 20; i++) {
       await new Promise(r => setTimeout(r, 3000))
       const pollRes = await axios.get(
         `${PRINTFUL_API}/mockup-generator/task?task_key=${taskKey}`,
         { headers: headers() }
       )
       const task = pollRes.data.result
+      console.log(`[mockup] poll ${i + 1}: status=${task.status}`)
       if (task.status === 'completed') {
-        const mockups = task.mockups || []
-        return res.json({
-          success: true,
-          mockups: mockups.map(m => ({
-            placement: m.placement,
-            mockupUrl: m.mockup_url,
-            extra: (m.extra || []).map(e => ({ title: e.title, url: e.url })),
-          })),
-        })
+        const rawMockups = task.mockups || []
+
+        // Download and re-host each mockup image so the URL never expires.
+        // Printful's S3 tmp URLs expire in minutes; serving from our own /temp-designs
+        // gives the frontend a stable URL that works in new tabs and for sharing.
+        const tempDir = join(__dirname, '..', 'public', 'temp-designs')
+        const stableMockups = await Promise.all(rawMockups.map(async m => {
+          try {
+            const imgResp = await fetch(m.mockup_url, { signal: AbortSignal.timeout(20000) })
+            if (!imgResp.ok) throw new Error(`HTTP ${imgResp.status}`)
+            const buffer = Buffer.from(await imgResp.arrayBuffer())
+            const uuid = randomUUID()
+            writeFileSync(join(tempDir, `${uuid}.jpg`), buffer)
+            return {
+              placement: m.placement,
+              mockupUrl: `${backendUrl}/temp-designs/${uuid}.jpg`,
+              extra: (m.extra || []).map(e => ({ title: e.title, url: e.url })),
+            }
+          } catch (dlErr) {
+            console.warn('[mockup] image download failed, using S3 URL:', dlErr.message)
+            return {
+              placement: m.placement,
+              mockupUrl: m.mockup_url,
+              extra: (m.extra || []).map(e => ({ title: e.title, url: e.url })),
+            }
+          }
+        }))
+
+        return res.json({ success: true, mockups: stableMockups })
       }
       if (task.status === 'failed') {
-        return res.status(500).json({ error: 'Mockup generation failed' })
+        console.error('[mockup] task failed:', JSON.stringify(task))
+        return res.status(500).json({ error: 'Mockup generation failed', detail: task.error || JSON.stringify(task) })
       }
     }
     res.status(504).json({ error: 'Mockup generation timed out' })
   } catch (err) {
-    console.error('Printful mockup error:', err.response?.data || err.message)
-    res.status(500).json({ error: 'Failed to generate mockup' })
+    const detail = err.response?.data?.result || err.response?.data || err.message
+    console.error('Printful mockup error:', detail)
+    res.status(500).json({ error: 'Failed to generate mockup', detail: String(typeof detail === 'object' ? JSON.stringify(detail) : detail) })
   }
 })
 
@@ -347,7 +495,8 @@ router.post('/confirm', optionalAuth, async (req, res) => {
           files: [
             {
               type: 'front',
-              url: printOrder.printful_file_url,
+              // Use the Printful file ID — it was already uploaded, no URL expiry risk
+              id: parseInt(printOrder.printful_file_id),
             },
           ],
         },

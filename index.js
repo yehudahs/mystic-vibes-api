@@ -5,6 +5,11 @@ import './config/env.js'
 
 import * as Sentry from '@sentry/node'
 import express from 'express'
+import { mkdirSync } from 'fs'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
@@ -132,6 +137,16 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }))
 
 // Logging
 app.use(morgan('combined'))
+
+// Serve temp design files for Printful URL-based upload.
+// Cross-Origin-Resource-Policy must be 'cross-origin' here so the frontend
+// (different port in dev, different origin in prod) can load mockup images in <img> tags.
+const tempDesignsDir = join(__dirname, 'public', 'temp-designs')
+mkdirSync(tempDesignsDir, { recursive: true })
+app.use('/temp-designs', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+  next()
+}, express.static(tempDesignsDir))
 
 // robots.txt — tells crawlers not to index the API domain
 app.get('/robots.txt', (req, res) => {
