@@ -10,8 +10,10 @@ const dbConfig = process.env.DATABASE_URL ? {
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
   max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 10000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 } : {
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -20,12 +22,20 @@ const dbConfig = process.env.DATABASE_URL ? {
   port: process.env.DB_PORT || 5432,
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 10000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 }
 
 // Create connection pool
 export const pool = new Pool(dbConfig)
+
+// Prevent unhandled 'error' events from crashing the process when Railway
+// drops an idle connection — the pool will reconnect on the next query.
+pool.on('error', (err) => {
+  console.error('Unexpected database pool error (connection will be re-established):', err.message)
+})
 
 // Test database connection
 export const testConnection = async () => {
