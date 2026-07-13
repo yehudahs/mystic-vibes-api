@@ -1153,7 +1153,7 @@ router.get('/plans', async (req, res) => {
       {
         id: 'unlimited-monthly',
         name: 'Cosmic Unlimited',
-        description: 'Unlimited readings, priority AI insights, exclusive spreads',
+        description: 'Unlimited readings across all spiritual tools',
         price: 997, // $9.97/month (in cents)
         currency: 'usd',
         interval: 'month',
@@ -1161,10 +1161,7 @@ router.get('/plans', async (req, res) => {
         popular: true,
         features: [
           'Unlimited readings of any type',
-          'Priority AI with deeper insights',
-          'Exclusive premium card spreads',
           'Full reading history & backup',
-          'Premium themes & customization',
           'Priority support'
         ]
       }
