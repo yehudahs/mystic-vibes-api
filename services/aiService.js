@@ -69,7 +69,7 @@ class AIService {
   async runPalmPipeline(imageBase64) {
     const response = await axios.post(`${this.getUrl()}/palm/pipeline`, {
       image: imageBase64
-    }, { timeout: 120000, headers: this.getAuthHeaders() })
+    }, { timeout: 360000, headers: this.getAuthHeaders() })
     if (response.data.ok === false) return response.data  // validation failure — pass through
     if (!response.data.success) throw new Error(response.data.error || 'Pipeline failed')
     return response.data

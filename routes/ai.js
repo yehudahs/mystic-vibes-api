@@ -1,10 +1,22 @@
 import express from 'express'
+import { randomUUID } from 'crypto'
 import aiService from '../services/aiService.js'
 import ollamaMonitor from '../services/ollamaMonitor.js'
 import { authenticateToken, optionalAuth } from '../middleware/auth.js'
 import { pool } from '../config/database.js'
 
 const router = express.Router()
+
+// In-memory store for async palm pipeline jobs (Railway's 60s proxy timeout requires async pattern)
+const _palmJobs = new Map()
+const _JOB_TTL_MS = 10 * 60 * 1000 // 10 min — clean up uncollected jobs
+
+function _cleanOldJobs() {
+  const now = Date.now()
+  for (const [id, job] of _palmJobs) {
+    if (now - job.createdAt > _JOB_TTL_MS) _palmJobs.delete(id)
+  }
+}
 
 // AI Health Check
 router.get('/health', async (req, res) => {
@@ -235,35 +247,65 @@ router.post('/mystical/generate', authenticateToken, async (req, res) => {
   }
 })
 
-// Run CV pipeline only (no Ollama) — fast, ~10s
-router.post('/palm/pipeline', optionalAuth, async (req, res) => {
-  try {
-    const { image } = req.body
-    if (!image) return res.status(400).json({ error: 'Image is required' })
+// Start CV pipeline job — returns jobId immediately to avoid Railway's 60s proxy timeout.
+// Pipeline takes ~120s on CPU; polling pattern keeps connections short.
+router.post('/palm/pipeline', optionalAuth, (req, res) => {
+  const { image } = req.body
+  if (!image) return res.status(400).json({ error: 'Image is required' })
 
-    let imageBase64 = image
-    if (image.includes('base64,')) imageBase64 = image.split('base64,')[1]
+  let imageBase64 = image
+  if (image.includes('base64,')) imageBase64 = image.split('base64,')[1]
 
-    const result = await aiService.runPalmPipeline(imageBase64)
-    if (result.ok === false) return res.json(result)  // validation failure — pass through
-    res.json({
-      success: true,
-      measurements: result.measurements,
-      mounts: result.mounts,
-      images: result.images,
-      image: result.image,
-      handedness: result.handedness,
-      measurement_source: result.measurement_source,
-      // Structured overlay payload (frontend renders SVG on base_image)
-      base_image: result.base_image,
-      base_size: result.base_size,
-      mount_base_image: result.mount_base_image,
-      mount_base_size: result.mount_base_size,
-      overlay: result.overlay,
+  _cleanOldJobs()
+  const jobId = randomUUID()
+  _palmJobs.set(jobId, { status: 'pending', createdAt: Date.now() })
+
+  // Run pipeline in background — do not await
+  aiService.runPalmPipeline(imageBase64)
+    .then(result => {
+      if (result.ok === false) {
+        // Validation failure — pass through as-is
+        _palmJobs.set(jobId, { status: 'done', result, createdAt: Date.now() })
+      } else {
+        _palmJobs.set(jobId, {
+          status: 'done',
+          createdAt: Date.now(),
+          result: {
+            success: true,
+            measurements: result.measurements,
+            mounts: result.mounts,
+            images: result.images,
+            image: result.image,
+            handedness: result.handedness,
+            measurement_source: result.measurement_source,
+            base_image: result.base_image,
+            base_size: result.base_size,
+            mount_base_image: result.mount_base_image,
+            mount_base_size: result.mount_base_size,
+            overlay: result.overlay,
+          },
+        })
+      }
     })
-  } catch (error) {
-    res.status(500).json({ error: 'Pipeline failed', message: error.message })
+    .catch(error => {
+      _palmJobs.set(jobId, { status: 'error', error: error.message, createdAt: Date.now() })
+    })
+
+  res.json({ jobId })
+})
+
+// Poll for palm pipeline job result
+router.get('/palm/pipeline/:jobId', optionalAuth, (req, res) => {
+  const job = _palmJobs.get(req.params.jobId)
+  if (!job) return res.status(404).json({ error: 'Job not found or expired' })
+  if (job.status === 'pending') return res.json({ status: 'pending' })
+  if (job.status === 'error') {
+    _palmJobs.delete(req.params.jobId)
+    return res.status(500).json({ error: 'Pipeline failed', message: job.error })
   }
+  // Done — return result and clean up
+  _palmJobs.delete(req.params.jobId)
+  res.json(job.result)
 })
 
 // Interpret a single palm feature via Ollama
